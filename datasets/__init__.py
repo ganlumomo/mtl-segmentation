@@ -4,8 +4,9 @@ Dataset setup and loaders
 from datasets import cityscapes
 from datasets import mapillary
 from datasets import kitti
-from datasets import camvid
 from datasets import tartanair_trav
+from datasets import tartanair_semantic
+from datasets import camvid
 import torchvision.transforms as standard_transforms
 
 import transforms.joint_transforms as joint_transforms
@@ -37,6 +38,13 @@ def setup_loaders(args):
         args.val_batch_size = 4
     elif args.dataset == 'kitti':
         args.dataset_cls = kitti
+        args.train_batch_size = args.bs_mult * args.ngpu
+        if args.bs_mult_val > 0:
+            args.val_batch_size = args.bs_mult_val * args.ngpu
+        else:
+            args.val_batch_size = args.bs_mult * args.ngpu
+    elif args.dataset == 'tartanair_semantic':
+        args.dataset_cls = tartanair_semantic
         args.train_batch_size = args.bs_mult * args.ngpu
         if args.bs_mult_val > 0:
             args.val_batch_size = args.bs_mult_val * args.ngpu
@@ -218,6 +226,32 @@ def setup_loaders(args):
             scf=args.scf,
             hardnm=args.hardnm)
         val_set = args.dataset_cls.KITTI(
+            'semantic', 'trainval', 0, 
+            joint_transform_list=None,
+            transform=val_input_transform,
+            target_transform=target_transform,
+            test=False,
+            cv_split=args.cv,
+            scf=None)
+    elif args.dataset == 'tartanair_semantic':
+        # eval_size_h = 384
+        # eval_size_w = 1280
+        # val_joint_transform_list = [
+        #         joint_transforms.ResizeHW(eval_size_h, eval_size_w)]
+            
+        train_set = args.dataset_cls.TartanAir_Semantic(
+            'semantic', 'train', args.maxSkip,
+            joint_transform_list=train_joint_transform_list,
+            transform=train_input_transform,
+            target_transform=target_train_transform,
+            dump_images=args.dump_augmentation_images,
+            class_uniform_pct=args.class_uniform_pct,
+            class_uniform_tile=args.class_uniform_tile,
+            test=args.test_mode,
+            cv_split=args.cv,
+            scf=args.scf,
+            hardnm=args.hardnm)
+        val_set = args.dataset_cls.TartanAir_Semantic(
             'semantic', 'trainval', 0, 
             joint_transform_list=None,
             transform=val_input_transform,

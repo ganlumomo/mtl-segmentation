@@ -2,7 +2,7 @@
 
     # Example on KITTI, fine tune
      python -m torch.distributed.launch --nproc_per_node=2 train.py \
-        --dataset tartanair_trav \
+        --dataset tartanair_semantic \
         --cv 2 \
         --arch network.deepv3.DeepWV3Plus \
         --snapshot ./pretrained_models/cityscapes_best.pth \
@@ -20,9 +20,9 @@
         --max_epoch 90 \
         --img_wt_loss \
         --wt_bound 1.0 \
-        --bs_mult 6 \
+        --bs_mult 8 \
         --apex \
-        --exp tartanair_single_trav \
+        --exp tartanair_single_semantic \
         --ckpt ./logs/ \
         --tb_path ./logs/
 
