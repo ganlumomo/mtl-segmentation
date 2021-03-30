@@ -26,7 +26,7 @@ import numpy as np
 import transforms.transforms as extended_transforms
 
 from config import assert_and_infer_cfg
-from datasets import cityscapes, kitti
+from datasets import cityscapes, kitti, tartanair_semantic, tartanair_trav
 from optimizer import restore_snapshot
 
 from utils.my_data_parallel import MyDataParallel
@@ -356,6 +356,18 @@ def setup_loader():
     elif args.dataset == 'kitti':
         args.dataset_cls = kitti
         test_set = args.dataset_cls.KITTI(args.mode, args.split,
+                                         transform=val_input_transform,
+                                         target_transform=target_transform,
+                                         cv_split=args.cv_split)
+    elif args.dataset == 'tartanair_semantic':
+        args.dataset_cls = tartanair_semantic
+        test_set = args.dataset_cls.TartanAir_Semantic(args.mode, args.split,
+                                         transform=val_input_transform,
+                                         target_transform=target_transform,
+                                         cv_split=args.cv_split)
+    elif args.dataset == 'tartanair_trav':
+        args.dataset_cls = tartanair_trav
+        test_set = args.dataset_cls.TartanAir_Trav(args.mode, args.split,
                                          transform=val_input_transform,
                                          target_transform=target_transform,
                                          cv_split=args.cv_split)

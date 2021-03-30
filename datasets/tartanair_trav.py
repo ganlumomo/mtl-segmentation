@@ -22,8 +22,8 @@ num_classes = 2
 ignore_label = 255
 root = cfg.DATASET.TARTANAIR_DIR
 #aug_root = cfg.DATASET.KITTI_AUG_DIR
-num_images = 2140 #P000
-#num_images = 399 #P001
+#num_images = 2140 #P000
+num_images = 399 #P001
 
 palette = [128, 64, 128, 244, 35, 232, 70, 70, 70, 102, 102, 156, 190, 153, 153,
            153, 153, 153, 250, 170, 30,

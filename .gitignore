@@ -1,5 +1,6 @@
 pretrained_models
 logs
+eval
 *.json
 
 ckpt
