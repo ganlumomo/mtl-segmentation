@@ -73,7 +73,8 @@ class IdentityResidualBlock(nn.Module):
                  groups=1,
                  norm_act=bnrelu,
                  dropout=None,
-                 dist_bn=False
+                 dist_bn=False,
+                 tasks=None
                  ):
         """Configurable identity-mapping residual block
 
@@ -104,7 +105,7 @@ class IdentityResidualBlock(nn.Module):
         """
         super(IdentityResidualBlock, self).__init__()
         self.dist_bn = dist_bn
-
+        print(tasks)
         # Check if we are using distributed BN and use the nn from encoding.nn
         # library rather than using standard pytorch.nn
 
@@ -139,6 +140,13 @@ class IdentityResidualBlock(nn.Module):
             if dropout is not None:
                 layers = layers[0:2] + [("dropout", dropout())] + layers[2:]
         else:
+            if tasks is not None:
+                print('Using parallel adapters in Encoder')
+                self.adapt = nn.ModuleDict({task: nn.Conv2d(channels[0], channels[1], kernel_size=1, bias=False) for task in tasks})
+                self.se = SELayerMultiTaskDict(channel=channels[2], task=tasks)
+                print('Using per-task batchnorm parameters in Encoder')
+                self.bn2 = nn.ModuleDict({task: norm_act(channels[0]) for task in tasks})
+                self.bn3 = nn.ModuleDict({task: norm_act(channels[1]) for task in tasks})
             layers = [
                 ("conv1",
                  nn.Conv2d(in_channels,
@@ -166,7 +174,7 @@ class IdentityResidualBlock(nn.Module):
             self.proj_conv = nn.Conv2d(
                 in_channels, channels[-1], 1, stride=stride, padding=0, bias=False)
 
-    def forward(self, x):
+    def forward(self, x, task=None):
         """
         This is the standard forward function for non-distributed batch norm
         """
@@ -177,7 +185,16 @@ class IdentityResidualBlock(nn.Module):
             shortcut = x.clone()
             bn1 = self.bn1(x)
 
-        out = self.convs(bn1)
+        if task is not None:
+            out = self.convs.conv1(bn1)
+            out = self.bn2[task](out)
+            out = self.adapt[task](out) + self.convs.conv2(out)
+            out = self.bn3[task](out)
+            out = self.convs.conv3(out)
+            out = self.se(out, task)
+        else:
+            out = self.convs(bn1)
+
         out.add_(shortcut)
         return out
 
@@ -290,10 +307,12 @@ class WiderResNetA2(nn.Module):
                  norm_act=bnrelu,
                  classes=0,
                  dilation=False,
-                 dist_bn=False
+                 dist_bn=False,
+                 tasks=None
                  ):
         super(WiderResNetA2, self).__init__()
         self.dist_bn = dist_bn
+        print(tasks)
 
         # If using distributed batch norm, use the encoding.nn as oppose to torch.nn
 
@@ -343,7 +362,8 @@ class WiderResNetA2(nn.Module):
                     IdentityResidualBlock(in_channels,
                                           channels[mod_id], norm_act=norm_act,
                                           stride=stride, dilation=dil,
-                                          dropout=drop, dist_bn=self.dist_bn)
+                                          dropout=drop, dist_bn=self.dist_bn,
+                                          tasks=tasks)
                 ))
 
                 # Update channels and p_keep

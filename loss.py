@@ -10,28 +10,37 @@ import torch.nn.functional as F
 from config import cfg
 
 
-def get_loss(args):
+def get_loss(args, tasks=None):
     """
     Get the criterion based on the loss function
     args: commandline arguments
     return: criterion, criterion_val
     """
 
+    criterion_val = CrossEntropyLoss2d(size_average=True,
+                                       weight=None,
+                                       ignore_index=args.dataset_cls.ignore_label).cuda()
     if args.img_wt_loss:
         criterion = ImageBasedCrossEntropyLoss2d(
             classes=args.dataset_cls.num_classes, size_average=True,
             ignore_index=args.dataset_cls.ignore_label,
             upper_bound=args.wt_bound).cuda()
+        if tasks is not None:
+            criterion1 = ImageBasedCrossEntropyLoss2d(
+                classes=args.dataset_cls.num_classes1, size_average=True,
+                ignore_index=args.dataset_cls.ignore_label,
+                upper_bound=args.wt_bound).cuda()
+            criterion2 = ImageBasedCrossEntropyLoss2d(
+                classes=args.dataset_cls.num_classes2, size_average=True,
+                ignore_index=args.dataset_cls.ignore_label,
+                upper_bound=args.wt_bound).cuda()
+            return criterion1, criterion2, criterion_val
     elif args.jointwtborder:
         criterion = ImgWtLossSoftNLL(classes=args.dataset_cls.num_classes,
                                      ignore_index=args.dataset_cls.ignore_label,
                                      upper_bound=args.wt_bound).cuda()
     else:
         criterion = CrossEntropyLoss2d(size_average=True,
-                                       ignore_index=args.dataset_cls.ignore_label).cuda()
-
-    criterion_val = CrossEntropyLoss2d(size_average=True,
-                                       weight=None,
                                        ignore_index=args.dataset_cls.ignore_label).cuda()
     return criterion, criterion_val
 

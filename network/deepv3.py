@@ -212,13 +212,15 @@ class DeepWV3Plus(nn.Module):
               (1024, 2048, 4096)]
     """
 
-    def __init__(self, num_classes, trunk='WideResnet38', criterion=None):
+    def __init__(self, num_classes, trunk='WideResnet38', criterion=None, criterion2=None, tasks=None):
 
         super(DeepWV3Plus, self).__init__()
         self.criterion = criterion
+        self.criterion2 = criterion2
+        self.tasks = tasks
         logging.info("Trunk: %s", trunk)
 
-        wide_resnet = wider_resnet38_a2(classes=1000, dilation=True)
+        wide_resnet = wider_resnet38_a2(classes=1000, dilation=True, tasks=tasks)
         wide_resnet = torch.nn.DataParallel(wide_resnet)
         if criterion is not None:
             try:
@@ -258,31 +260,79 @@ class DeepWV3Plus(nn.Module):
 
         initialize_weights(self.final)
 
-    def forward(self, inp, gts=None):
+        if tasks is not None:
+            self.aspp2 = _AtrousSpatialPyramidPoolingModule(4096, 256,
+                                                            output_stride=8)
+
+            self.bot_fine2 = nn.Conv2d(128, 48, kernel_size=1, bias=False)
+            self.bot_aspp2 = nn.Conv2d(1280, 256, kernel_size=1, bias=False)
+
+            self.final2 = nn.Sequential(
+                nn.Conv2d(256 + 48, 256, kernel_size=3, padding=1, bias=False),
+                Norm2d(256),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(256, 256, kernel_size=3, padding=1, bias=False),
+                Norm2d(256),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(256, 2, kernel_size=1, bias=False))
+
+            initialize_weights(self.final2)
+           
+
+
+    def forward(self, inp, gts=None, gts2=None):
 
         x_size = inp.size()
         x = self.mod1(inp)
         m2 = self.mod2(self.pool2(x))
         x = self.mod3(self.pool3(m2))
         x = self.mod4(x)
-        x = self.mod5(x)
-        x = self.mod6(x)
-        x = self.mod7(x)
-        x = self.aspp(x)
-        dec0_up = self.bot_aspp(x)
+        x_tmp = self.mod5(x)
+        
+        if self.tasks is None:
+            x = self.mod6(x_tmp)
+            x = self.mod7(x)
+            x = self.aspp(x)
+            dec0_up = self.bot_aspp(x)
 
-        dec0_fine = self.bot_fine(m2)
-        dec0_up = Upsample(dec0_up, m2.size()[2:])
-        dec0 = [dec0_fine, dec0_up]
-        dec0 = torch.cat(dec0, 1)
+            dec0_fine = self.bot_fine(m2)
+            dec0_up = Upsample(dec0_up, m2.size()[2:])
+            dec0 = [dec0_fine, dec0_up]
+            dec0 = torch.cat(dec0, 1)
 
-        dec1 = self.final(dec0)
-        out = Upsample(dec1, x_size[2:])
+            dec1 = self.final(dec0)
+            out = Upsample(dec1, x_size[2:])
+            if self.training:
+                return self.criterion(out, gts)
+            return out
+        else:
+            x_task = []
+            for task in self.tasks:
+                x = self.mod6(x_tmp, task=task)
+                x = self.mod7(x, task=task)
+                x_task.append(x)
 
-        if self.training:
-            return self.criterion(out, gts)
+            x = self.aspp(x_task[0])
+            dec0_up = self.bot_aspp(x)
+            dec0_fine = self.bot_fine(m2)
+            dec0_up = Upsample(dec0_up, m2.size()[2:])
+            dec0 = [dec0_fine, dec0_up]
+            dec0 = torch.cat(dec0, 1)
+            dec1 = self.final(dec0)
+            out1 = Upsample(dec1, x_size[2:])
 
-        return out
+            x = self.aspp1(x_task[1])
+            dec0_up = self.bot_aspp1(x)
+            dec0_fine = self.bot_fine1(m2)
+            dec0_up = Upsample(dec0_up, m2.size()[2:])
+            dec0 = [dec0_fine, dec0_up]
+            dec0 = torch.cat(dec0, 1)
+            dec1 = self.final1(dec0)
+            out2 = Upsample(dec1, x_size[2:])
+            
+            if self.training:
+                return self.criterion(out1, gts), self.criterion2(out2, gts2)
+            return out1, out2
 
 
 def DeepSRNX50V3PlusD_m1(num_classes, criterion):

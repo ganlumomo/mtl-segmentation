@@ -243,6 +243,158 @@ def evaluate_eval(args, net, optimizer, val_loss, hist, dump_images, writer, epo
     writer.add_scalar('training/mean_iu', mean_iu, epoch)
     writer.add_scalar('training/val_loss', val_loss.avg, epoch)
 
+def evaluate_eval_multi(args, net, optimizer, val_loss1, val_loss2, hist1, hist2, dump_images, writer, epoch=0, dataset=None, ):
+    """
+    Modified IOU mechanism for on-the-fly IOU calculations ( prevents memory overflow for
+    large dataset) Only applies to eval/eval.py
+    """
+    # axis 0: gt, axis 1: prediction
+    acc1 = np.diag(hist1).sum() / hist1.sum()
+    acc2 = np.diag(hist2).sum() / hist2.sum()
+    acc_cls1 = np.diag(hist1) / hist1.sum(axis=1)
+    acc_cls2 = np.diag(hist2) / hist2.sum(axis=1)
+    acc_cls1 = np.nanmean(acc_cls1)
+    acc_cls2 = np.nanmean(acc_cls2)
+    iu1 = np.diag(hist1) / (hist1.sum(axis=1) + hist1.sum(axis=0) - np.diag(hist1))
+    iu2 = np.diag(hist2) / (hist2.sum(axis=1) + hist2.sum(axis=0) - np.diag(hist2))
+
+    print_evaluate_results(hist1, iu1,  dataset)
+    print_evaluate_results(hist2, iu2,  dataset)
+    freq1 = hist1.sum(axis=1) / hist1.sum()
+    freq2 = hist2.sum(axis=1) / hist2.sum()
+    mean_iu1 = np.nanmean(iu1)
+    mean_iu2 = np.nanmean(iu2)
+    logging.info('mean1 {}'.format(mean_iu1))
+    logging.info('mean2 {}'.format(mean_iu2))
+    fwavacc1 = (freq1[freq1 > 0] * iu1[freq1 > 0]).sum()
+    fwavacc2 = (freq2[freq2 > 0] * iu2[freq2 > 0]).sum()
+
+    # update latest snapshot
+    if 'mean_iu1' in args.last_record:
+        last_snapshot = 'last_epoch_{}_mean-iu_{:.5f}.pth'.format(
+            args.last_record['epoch'], args.last_record['mean_iu'])
+        last_snapshot = os.path.join(args.exp_path, last_snapshot)
+        try:
+            os.remove(last_snapshot)
+        except OSError:
+            pass
+    last_snapshot = 'last_epoch_{}_mean-iu1_{:.5f}_mean-iu2_{:.5f}.pth'.format(epoch, mean_iu1, mean_iu2)
+    last_snapshot = os.path.join(args.exp_path, last_snapshot)
+    args.last_record['mean_iu1'] = mean_iu
+    args.last_record['mean_iu2'] = mean_iu
+    args.last_record['epoch'] = epoch
+    
+    torch.cuda.synchronize()
+    
+    torch.save({
+        'state_dict': net.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'epoch': epoch,
+        'mean_iu1': mean_iu1,
+        'mean_iu2': mean_iu2,
+        'command': ' '.join(sys.argv[1:])
+    }, last_snapshot)
+
+    # update best snapshot for each task
+    if mean_iu1 > args.best_record1['mean_iu1'] :
+        # remove old best snapshot
+        if args.best_record1['epoch'] != -1:
+            best_snapshot1 = 'best_epoch_{}_mean-iu1_{:.5f}.pth'.format(
+                args.best_record1['epoch'], args.best_record1['mean_iu1'])
+            best_snapshot1 = os.path.join(args.exp_path, best_snapshot1)
+            assert os.path.exists(best_snapshot1), \
+                'cant find old snapshot {}'.format(best_snapshot1)
+            os.remove(best_snapshot1)
+
+        # save new best
+        args.best_record1['val_loss1'] = val_loss1.avg
+        args.best_record1['epoch'] = epoch
+        args.best_record1['acc1'] = acc1
+        args.best_record1['mean_iu1'] = mean_iu1
+        args.best_record1['fwavacc1'] = fwavacc1
+
+        best_snapshot1 = 'best_epoch_{}_mean-iu1_{:.5f}.pth'.format(
+            args.best_record1['epoch'], args.best_record1['mean_iu1'])
+        best_snapshot1 = os.path.join(args.exp_path, best_snapshot1)
+        shutil.copyfile(last_snapshot, best_snapshot1)
+
+    if mean_iu2 > args.best_record2['mean_iu2'] :
+        # remove old best snapshot
+        if args.best_record2['epoch'] != -1:
+            best_snapshot2 = 'best_epoch_{}_mean-iu2_{:.5f}.pth'.format(
+                args.best_record2['epoch'], args.best_record2['mean_iu2'])
+            best_snapshot2 = os.path.join(args.exp_path, best_snapshot2)
+            assert os.path.exists(best_snapshot2), \
+                'cant find old snapshot {}'.format(best_snapshot2)
+            os.remove(best_snapshot2)
+        
+        # save new best
+        args.best_record2['val_loss2'] = val_loss2.avg
+        args.best_record2['epoch'] = epoch
+        args.best_record2['acc2'] = acc2
+        args.best_record2['mean_iu2'] = mean_iu2
+        args.best_record2['fwavacc2'] = fwavacc2
+
+        best_snapshot2 = 'best_epoch_{}_mean-iu2_{:.5f}.pth'.format(
+            args.best_record2['epoch'], args.best_record2['mean_iu2'])
+        best_snapshot2 = os.path.join(args.exp_path, best_snapshot2)
+        shutil.copyfile(last_snapshot, best_snapshot2)
+
+    if (mean_iu1 + mean_iu2) > args.best_record['mean_iu'] :
+        # remove old best snapshot
+        if args.best_record['epoch'] != -1:
+            best_snapshot = 'best_epoch_{}_mean-iu-total_{:.5f}.pth'.format(
+                args.best_record['epoch'], args.best_record['mean_iu'])
+            best_snapshot = os.path.join(args.exp_path, best_snapshot)
+            assert os.path.exists(best_snapshot), \
+                'cant find old snapshot {}'.format(best_snapshot)
+            os.remove(best_snapshot)
+        
+        # save new best
+        args.best_record['val_loss'] = val_loss1.avg + val_loss2.avg
+        args.best_record['epoch'] = epoch
+        args.best_record['acc'] = acc1 + acc2
+        args.best_record['mean_iu'] = mean_iu1 + mean_iu2
+        args.best_record['fwavacc'] = fwavacc1 + fwavacc2
+
+        best_snapshot = 'best_epoch_{}_mean-iu-total_{:.5f}.pth'.format(
+            args.best_record['epoch'], args.best_record['mean_iu'])
+        best_snapshot = os.path.join(args.exp_path, best_snapshot)
+        shutil.copyfile(last_snapshot, best_snapshot)
+
+    logging.info('-' * 107)
+    fmt_str = '[epoch %d], [val loss1 %.5f], [acc1 %.5f], [acc_cls1 %.5f], ' +\
+              '[mean_iu1 %.5f], [fwavacc1 %.5f]'
+    logging.info(fmt_str % (epoch, val_loss1.avg, acc1, acc_cls1, mean_iu1, fwavacc1))
+    fmt_str = '[epoch %d], [val loss2 %.5f], [acc2 %.5f], [acc_cls1 %.5f], ' +\
+              '[mean_iu1 %.5f], [fwavacc1 %.5f]'
+    logging.info(fmt_str % (epoch, val_loss2.avg, acc2, acc_cls2, mean_iu2, fwavacc2))
+    fmt_str = 'best record1: [val loss1 %.5f], [acc1 %.5f], [acc_cls1 %.5f], ' +\
+              '[mean_iu %.5f], [fwavacc %.5f], [epoch %d], '
+    logging.info(fmt_str % (args.best_record1['val_loss1'], args.best_record1['acc1'],
+                            args.best_record1['acc_cls1'], args.best_record1['mean_iu1'],
+                            args.best_record1['fwavacc1'], args.best_record1['epoch']))
+    fmt_str = 'best record2: [val loss2 %.5f], [acc2 %.5f], [acc_cls2 %.5f], ' +\
+              '[mean_iu2 %.5f], [fwavacc2 %.5f], [epoch %d], '
+    logging.info(fmt_str % (args.best_record2['val_loss2'], args.best_record2['acc2'],
+                            args.best_record2['acc_cls2'], args.best_record2['mean_iu2'],
+                            args.best_record2['fwavacc2'], args.best_record2['epoch']))
+    fmt_str = 'best record total: [val loss %.5f], [acc %.5f], [acc_cls %.5f], ' +\
+              '[mean_iu %.5f], [fwavacc %.5f], [epoch %d], '
+    logging.info(fmt_str % (args.best_record['val_loss'], args.best_record2['acc'],
+                            args.best_record['acc_cls'], args.best_record2['mean_iu'],
+                            args.best_record['fwavacc'], args.best_record2['epoch']))
+    logging.info('-' * 107)
+
+    # tensorboard logging of validation phase metrics
+
+    writer.add_scalar('training/acc1', acc1, epoch)
+    writer.add_scalar('training/acc2', acc2, epoch)
+    writer.add_scalar('training/mean_iu1', mean_iu1, epoch)
+    writer.add_scalar('training/mean_iu2', mean_iu2, epoch)
+    writer.add_scalar('training/mean_iu', mean_iu1 + mean_iu2, epoch)
+    writer.add_scalar('training/val_loss1', val_loss1.avg, epoch)
+    writer.add_scalar('training/val_loss2', val_loss2.avg, epoch)
 
 
 def fast_hist(label_pred, label_true, num_classes):

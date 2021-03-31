@@ -8,12 +8,12 @@ import torch
 
 
 
-def get_net(args, criterion):
+def get_net(args, criterion, criterion2=None, tasks=None):
     """
     Get Network Architecture based on arguments provided
     """
     net = get_model(network=args.arch, num_classes=args.dataset_cls.num_classes,
-                    criterion=criterion)
+                    criterion=criterion, criterion2=None, tasks=tasks)
     num_params = sum([param.nelement() for param in net.parameters()])
     logging.info('Model params = {:2.1f}M'.format(num_params / 1000000))
 
@@ -33,7 +33,7 @@ def wrap_network_in_dataparallel(net, use_apex_data_parallel=False):
     return net
 
 
-def get_model(network, num_classes, criterion):
+def get_model(network, num_classes, criterion, criterion2=None, tasks=None):
     """
     Fetch Network Function Pointer
     """
@@ -41,5 +41,5 @@ def get_model(network, num_classes, criterion):
     model = network[network.rfind('.') + 1:]
     mod = importlib.import_module(module)
     net_func = getattr(mod, model)
-    net = net_func(num_classes=num_classes, criterion=criterion)
+    net = net_func(num_classes=num_classes, criterion=criterion, criterion2=criterion2, tasks=tasks)
     return net
