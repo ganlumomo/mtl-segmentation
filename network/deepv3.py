@@ -30,7 +30,7 @@ from network import SEresnext
 from network import Resnet
 from network.wider_resnet import wider_resnet38_a2
 from network.mynn import initialize_weights, Norm2d, Upsample
-
+from optimizer import forgiving_state_restore
 
 class _AtrousSpatialPyramidPoolingModule(nn.Module):
     """
@@ -225,7 +225,8 @@ class DeepWV3Plus(nn.Module):
         if criterion is not None:
             try:
                 checkpoint = torch.load('./pretrained_models/wider_resnet38.pth.tar', map_location='cpu')
-                wide_resnet.load_state_dict(checkpoint['state_dict'])
+                #wide_resnet.load_state_dict(checkpoint['state_dict'])
+                forgiving_state_restore(wide_resnet, checkpoint['state_dict'])
                 del checkpoint
             except:
                 print("Please download the ImageNet weights of WideResNet38 in our repo to ./pretrained_models/wider_resnet38.pth.tar.")
@@ -282,12 +283,12 @@ class DeepWV3Plus(nn.Module):
 
     def forward(self, inp, gts=None, gts2=None):
 
-        x_size = inp.size()
-        x = self.mod1(inp)
-        m2 = self.mod2(self.pool2(x))
-        x = self.mod3(self.pool3(m2))
-        x = self.mod4(x)
-        x_tmp = self.mod5(x)
+        #x_size = inp.size()
+        #x = self.mod1(inp)
+        #m2 = self.mod2(self.pool2(x))
+        #x = self.mod3(self.pool3(m2))
+        #x = self.mod4(x)
+        #x_tmp = self.mod5(x)
         
         if self.tasks is None:
             x = self.mod6(x_tmp)
@@ -308,7 +309,7 @@ class DeepWV3Plus(nn.Module):
         else:
             x_task = []
             for task in self.tasks:
-                x = self.mod6(x_tmp, task=task)
+                x = self.mod6(inp, 'semantic', 'semantic')
                 x = self.mod7(x, task=task)
                 x_task.append(x)
 

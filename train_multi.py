@@ -220,7 +220,7 @@ def train(train_loader, net, optim, curr_epoch, writer, tasks):
 
         optim.zero_grad()
 
-        main_loss1, main_loss2 = net(inputs, gts=gts, gts2=gts2, tasks=tasks)
+        main_loss1, main_loss2 = net(inputs, gts=gts, gts2=gts2)
         main_loss = main_loss1 + main_loss2
 
         if args.apex:

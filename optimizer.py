@@ -87,9 +87,18 @@ def forgiving_state_restore(net, loaded_dict):
     """
     net_state_dict = net.state_dict()
     new_loaded_dict = {}
+    for k in loaded_dict:
+        if k not in net_state_dict or net_state_dict[k].size() != loaded_dict[k].size():
+            logging.info("Uable to load parameter %s", k)
     for k in net_state_dict:
         if k in loaded_dict and net_state_dict[k].size() == loaded_dict[k].size():
             new_loaded_dict[k] = loaded_dict[k]
+        elif 'aspp2' in k:
+            new_loaded_dict[k] = loaded_dict[k.replace('aspp2', 'aspp')]
+        elif 'bot_fine2' in k:
+            new_loaded_dict[k] = loaded_dict[k.replace('bot_fine2', 'bot_fine')]
+        elif 'final2' in k and k != 'module.final2.6.weight':
+            new_loaded_dict[k] = loaded_dict[k.replace('final2', 'final')]
         else:
             logging.info("Skipped loading parameter %s", k)
     net_state_dict.update(new_loaded_dict)

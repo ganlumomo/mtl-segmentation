@@ -39,6 +39,7 @@ from functools import partial
 import torch.nn as nn
 import torch
 import network.mynn as mynn
+from network.squeeze import SELayerMultiTaskDict
 
 def bnrelu(channels):
     """
@@ -105,7 +106,7 @@ class IdentityResidualBlock(nn.Module):
         """
         super(IdentityResidualBlock, self).__init__()
         self.dist_bn = dist_bn
-        print(tasks)
+        
         # Check if we are using distributed BN and use the nn from encoding.nn
         # library rather than using standard pytorch.nn
 
@@ -143,7 +144,7 @@ class IdentityResidualBlock(nn.Module):
             if tasks is not None:
                 print('Using parallel adapters in Encoder')
                 self.adapt = nn.ModuleDict({task: nn.Conv2d(channels[0], channels[1], kernel_size=1, bias=False) for task in tasks})
-                self.se = SELayerMultiTaskDict(channel=channels[2], task=tasks)
+                self.se = SELayerMultiTaskDict(channel=channels[2], tasks=tasks)
                 print('Using per-task batchnorm parameters in Encoder')
                 self.bn2 = nn.ModuleDict({task: norm_act(channels[0]) for task in tasks})
                 self.bn3 = nn.ModuleDict({task: norm_act(channels[1]) for task in tasks})
@@ -174,10 +175,11 @@ class IdentityResidualBlock(nn.Module):
             self.proj_conv = nn.Conv2d(
                 in_channels, channels[-1], 1, stride=stride, padding=0, bias=False)
 
-    def forward(self, x, task=None):
+    def forward(self, x, task, apple):
         """
         This is the standard forward function for non-distributed batch norm
         """
+        print(task)
         if hasattr(self, "proj_conv"):
             bn1 = self.bn1(x)
             shortcut = self.proj_conv(bn1)
@@ -197,7 +199,6 @@ class IdentityResidualBlock(nn.Module):
 
         out.add_(shortcut)
         return out
-
 
 
 
