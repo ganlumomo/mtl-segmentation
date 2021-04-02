@@ -271,8 +271,8 @@ def evaluate_eval_multi(args, net, optimizer, val_loss1, val_loss2, hist1, hist2
 
     # update latest snapshot
     if 'mean_iu1' in args.last_record:
-        last_snapshot = 'last_epoch_{}_mean-iu_{:.5f}.pth'.format(
-            args.last_record['epoch'], args.last_record['mean_iu'])
+        last_snapshot = 'last_epoch_{}_mean-iu1_{:.5f}_mean-iu2_{:.5f}.pth'.format(
+            args.last_record['epoch'], args.last_record['mean_iu1'], args.last_record['mean_iu2'])
         last_snapshot = os.path.join(args.exp_path, last_snapshot)
         try:
             os.remove(last_snapshot)
@@ -280,8 +280,8 @@ def evaluate_eval_multi(args, net, optimizer, val_loss1, val_loss2, hist1, hist2
             pass
     last_snapshot = 'last_epoch_{}_mean-iu1_{:.5f}_mean-iu2_{:.5f}.pth'.format(epoch, mean_iu1, mean_iu2)
     last_snapshot = os.path.join(args.exp_path, last_snapshot)
-    args.last_record['mean_iu1'] = mean_iu
-    args.last_record['mean_iu2'] = mean_iu
+    args.last_record['mean_iu1'] = mean_iu1
+    args.last_record['mean_iu2'] = mean_iu2
     args.last_record['epoch'] = epoch
     
     torch.cuda.synchronize()
@@ -310,6 +310,7 @@ def evaluate_eval_multi(args, net, optimizer, val_loss1, val_loss2, hist1, hist2
         args.best_record1['val_loss1'] = val_loss1.avg
         args.best_record1['epoch'] = epoch
         args.best_record1['acc1'] = acc1
+        args.best_record1['acc_cls1'] = acc_cls1
         args.best_record1['mean_iu1'] = mean_iu1
         args.best_record1['fwavacc1'] = fwavacc1
 
@@ -332,6 +333,7 @@ def evaluate_eval_multi(args, net, optimizer, val_loss1, val_loss2, hist1, hist2
         args.best_record2['val_loss2'] = val_loss2.avg
         args.best_record2['epoch'] = epoch
         args.best_record2['acc2'] = acc2
+        args.best_record2['acc_cls2'] = acc_cls2
         args.best_record2['mean_iu2'] = mean_iu2
         args.best_record2['fwavacc2'] = fwavacc2
 
@@ -343,7 +345,7 @@ def evaluate_eval_multi(args, net, optimizer, val_loss1, val_loss2, hist1, hist2
     if (mean_iu1 + mean_iu2) > args.best_record['mean_iu'] :
         # remove old best snapshot
         if args.best_record['epoch'] != -1:
-            best_snapshot = 'best_epoch_{}_mean-iu-total_{:.5f}.pth'.format(
+            best_snapshot = 'best_epoch_{}_mean-iut_{:.5f}.pth'.format(
                 args.best_record['epoch'], args.best_record['mean_iu'])
             best_snapshot = os.path.join(args.exp_path, best_snapshot)
             assert os.path.exists(best_snapshot), \
@@ -354,10 +356,11 @@ def evaluate_eval_multi(args, net, optimizer, val_loss1, val_loss2, hist1, hist2
         args.best_record['val_loss'] = val_loss1.avg + val_loss2.avg
         args.best_record['epoch'] = epoch
         args.best_record['acc'] = acc1 + acc2
+        args.best_record['acc_cls'] = acc_cls1 + acc_cls2
         args.best_record['mean_iu'] = mean_iu1 + mean_iu2
         args.best_record['fwavacc'] = fwavacc1 + fwavacc2
 
-        best_snapshot = 'best_epoch_{}_mean-iu-total_{:.5f}.pth'.format(
+        best_snapshot = 'best_epoch_{}_mean-iut_{:.5f}.pth'.format(
             args.best_record['epoch'], args.best_record['mean_iu'])
         best_snapshot = os.path.join(args.exp_path, best_snapshot)
         shutil.copyfile(last_snapshot, best_snapshot)
@@ -366,11 +369,11 @@ def evaluate_eval_multi(args, net, optimizer, val_loss1, val_loss2, hist1, hist2
     fmt_str = '[epoch %d], [val loss1 %.5f], [acc1 %.5f], [acc_cls1 %.5f], ' +\
               '[mean_iu1 %.5f], [fwavacc1 %.5f]'
     logging.info(fmt_str % (epoch, val_loss1.avg, acc1, acc_cls1, mean_iu1, fwavacc1))
-    fmt_str = '[epoch %d], [val loss2 %.5f], [acc2 %.5f], [acc_cls1 %.5f], ' +\
-              '[mean_iu1 %.5f], [fwavacc1 %.5f]'
+    fmt_str = '[epoch %d], [val loss2 %.5f], [acc2 %.5f], [acc_cls2 %.5f], ' +\
+              '[mean_iu2 %.5f], [fwavacc2 %.5f]'
     logging.info(fmt_str % (epoch, val_loss2.avg, acc2, acc_cls2, mean_iu2, fwavacc2))
     fmt_str = 'best record1: [val loss1 %.5f], [acc1 %.5f], [acc_cls1 %.5f], ' +\
-              '[mean_iu %.5f], [fwavacc %.5f], [epoch %d], '
+              '[mean_iu1 %.5f], [fwavacc1 %.5f], [epoch %d], '
     logging.info(fmt_str % (args.best_record1['val_loss1'], args.best_record1['acc1'],
                             args.best_record1['acc_cls1'], args.best_record1['mean_iu1'],
                             args.best_record1['fwavacc1'], args.best_record1['epoch']))
@@ -379,11 +382,11 @@ def evaluate_eval_multi(args, net, optimizer, val_loss1, val_loss2, hist1, hist2
     logging.info(fmt_str % (args.best_record2['val_loss2'], args.best_record2['acc2'],
                             args.best_record2['acc_cls2'], args.best_record2['mean_iu2'],
                             args.best_record2['fwavacc2'], args.best_record2['epoch']))
-    fmt_str = 'best record total: [val loss %.5f], [acc %.5f], [acc_cls %.5f], ' +\
-              '[mean_iu %.5f], [fwavacc %.5f], [epoch %d], '
-    logging.info(fmt_str % (args.best_record['val_loss'], args.best_record2['acc'],
-                            args.best_record['acc_cls'], args.best_record2['mean_iu'],
-                            args.best_record['fwavacc'], args.best_record2['epoch']))
+    fmt_str = 'best recordt: [val losst %.5f], [acct %.5f], [acc_clst %.5f], ' +\
+              '[mean_iut %.5f], [fwavacct %.5f], [epoch %d], '
+    logging.info(fmt_str % (args.best_record['val_loss'], args.best_record['acc'],
+                            args.best_record['acc_cls'], args.best_record['mean_iu'],
+                            args.best_record['fwavacc'], args.best_record['epoch']))
     logging.info('-' * 107)
 
     # tensorboard logging of validation phase metrics

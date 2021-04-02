@@ -39,6 +39,8 @@ from functools import partial
 import torch.nn as nn
 import torch
 import network.mynn as mynn
+from network.mynn import initialize_weights
+from network.squeeze import SequentialMultiTask
 from network.squeeze import SELayerMultiTaskDict
 
 def bnrelu(channels):
@@ -141,13 +143,6 @@ class IdentityResidualBlock(nn.Module):
             if dropout is not None:
                 layers = layers[0:2] + [("dropout", dropout())] + layers[2:]
         else:
-            if tasks is not None:
-                print('Using parallel adapters in Encoder')
-                self.adapt = nn.ModuleDict({task: nn.Conv2d(channels[0], channels[1], kernel_size=1, bias=False) for task in tasks})
-                self.se = SELayerMultiTaskDict(channel=channels[2], tasks=tasks)
-                print('Using per-task batchnorm parameters in Encoder')
-                self.bn2 = nn.ModuleDict({task: norm_act(channels[0]) for task in tasks})
-                self.bn3 = nn.ModuleDict({task: norm_act(channels[1]) for task in tasks})
             layers = [
                 ("conv1",
                  nn.Conv2d(in_channels,
@@ -169,17 +164,27 @@ class IdentityResidualBlock(nn.Module):
             ]
             if dropout is not None:
                 layers = layers[0:4] + [("dropout", dropout())] + layers[4:]
+            
+            if tasks is not None:
+                print('Using per-task batchnorm parameters in Encoder')
+                layers[1] = ("bn2", nn.ModuleDict({task: norm_act(channels[0]) for task in tasks}))
+                layers[3] = ("bn3", nn.ModuleDict({task: norm_act(channels[1]) for task in tasks}))
+                print('Using parallel adapters in Encoder')
+                self.adapt = nn.ModuleDict({task: nn.Conv2d(channels[0], channels[1], kernel_size=1, bias=False) for task in tasks})
+                self.se = SELayerMultiTaskDict(channel=channels[2], tasks=tasks)
+                initialize_weights(self.adapt)
+                initialize_weights(self.se)
+       
         self.convs = nn.Sequential(OrderedDict(layers))
 
         if need_proj_conv:
             self.proj_conv = nn.Conv2d(
                 in_channels, channels[-1], 1, stride=stride, padding=0, bias=False)
 
-    def forward(self, x, task, apple):
+    def forward(self, x, task=None):
         """
         This is the standard forward function for non-distributed batch norm
         """
-        print(task)
         if hasattr(self, "proj_conv"):
             bn1 = self.bn1(x)
             shortcut = self.proj_conv(bn1)
@@ -189,9 +194,9 @@ class IdentityResidualBlock(nn.Module):
 
         if task is not None:
             out = self.convs.conv1(bn1)
-            out = self.bn2[task](out)
+            out = self.convs.bn2[task](out)
             out = self.adapt[task](out) + self.convs.conv2(out)
-            out = self.bn3[task](out)
+            out = self.convs.bn3[task](out)
             out = self.convs.conv3(out)
             out = self.se(out, task)
         else:
@@ -313,7 +318,6 @@ class WiderResNetA2(nn.Module):
                  ):
         super(WiderResNetA2, self).__init__()
         self.dist_bn = dist_bn
-        print(tasks)
 
         # If using distributed batch norm, use the encoding.nn as oppose to torch.nn
 
@@ -374,7 +378,10 @@ class WiderResNetA2(nn.Module):
             if mod_id < 2:
                 self.add_module("pool%d" %
                                 (mod_id + 2), nn.MaxPool2d(3, stride=2, padding=1))
-            self.add_module("mod%d" % (mod_id + 2), nn.Sequential(OrderedDict(blocks)))
+            if tasks != None:
+                self.add_module("mod%d" % (mod_id + 2), SequentialMultiTask(OrderedDict(blocks)))
+            else:
+                self.add_module("mod%d" % (mod_id + 2), nn.Sequential(OrderedDict(blocks)))
 
         # Pooling and predictor
         self.bn_out = norm_act(in_channels)

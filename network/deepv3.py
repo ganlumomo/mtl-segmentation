@@ -283,12 +283,12 @@ class DeepWV3Plus(nn.Module):
 
     def forward(self, inp, gts=None, gts2=None):
 
-        #x_size = inp.size()
-        #x = self.mod1(inp)
-        #m2 = self.mod2(self.pool2(x))
-        #x = self.mod3(self.pool3(m2))
-        #x = self.mod4(x)
-        #x_tmp = self.mod5(x)
+        x_size = inp.size()
+        x = self.mod1(inp)
+        m2 = self.mod2(self.pool2(x))
+        x = self.mod3(self.pool3(m2))
+        x = self.mod4(x)
+        x_tmp = self.mod5(x)
         
         if self.tasks is None:
             x = self.mod6(x_tmp)
@@ -309,7 +309,7 @@ class DeepWV3Plus(nn.Module):
         else:
             x_task = []
             for task in self.tasks:
-                x = self.mod6(inp, 'semantic', 'semantic')
+                x = self.mod6(x_tmp, task=task)
                 x = self.mod7(x, task=task)
                 x_task.append(x)
 
@@ -322,13 +322,13 @@ class DeepWV3Plus(nn.Module):
             dec1 = self.final(dec0)
             out1 = Upsample(dec1, x_size[2:])
 
-            x = self.aspp1(x_task[1])
-            dec0_up = self.bot_aspp1(x)
-            dec0_fine = self.bot_fine1(m2)
+            x = self.aspp2(x_task[1])
+            dec0_up = self.bot_aspp2(x)
+            dec0_fine = self.bot_fine2(m2)
             dec0_up = Upsample(dec0_up, m2.size()[2:])
             dec0 = [dec0_fine, dec0_up]
             dec0 = torch.cat(dec0, 1)
-            dec1 = self.final1(dec0)
+            dec1 = self.final2(dec0)
             out2 = Upsample(dec1, x_size[2:])
             
             if self.training:

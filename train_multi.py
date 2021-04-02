@@ -10,7 +10,7 @@ import torch
 from apex import amp
 
 from config import cfg, assert_and_infer_cfg
-from utils.misc import AverageMeter, prep_experiment, evaluate_eval, fast_hist
+from utils.misc import AverageMeter, prep_experiment, evaluate_eval_multi, fast_hist
 import datasets
 import loss
 import network
@@ -123,6 +123,10 @@ parser.add_argument('--maxSkip', type=int, default=0,
 parser.add_argument('--scf', action='store_true', default=False,
                     help='scale correction factor')
 args = parser.parse_args()
+args.best_record1 = {'epoch': -1, 'iter': 0, 'val_loss1': 1e10, 'acc1': 0,
+                    'acc_cls1': 0, 'mean_iu1': 0, 'fwavacc1': 0}
+args.best_record2 = {'epoch': -1, 'iter': 0, 'val_loss2': 1e10, 'acc2': 0,
+                    'acc_cls2': 0, 'mean_iu2': 0, 'fwavacc2': 0}
 args.best_record = {'epoch': -1, 'iter': 0, 'val_loss': 1e10, 'acc': 0,
                     'acc_cls': 0, 'mean_iu': 0, 'fwavacc': 0}
 
@@ -159,7 +163,7 @@ def main():
 
     tasks = ['semantic', 'traversability']
     criterion, criterion2, criterion_val = loss.get_loss(args, tasks=tasks)
-    net = network.get_net(args, criterion, criterion2, tasks=tasks)
+    net = network.get_net(args, criterion=criterion, criterion2=criterion2, tasks=tasks)
     optim, scheduler = optimizer.get_optimizer(args, net)
 
     if args.fp16:
@@ -262,12 +266,10 @@ def train(train_loader, net, optim, curr_epoch, writer, tasks):
             logging.info(msg)
 
             # Log tensorboard metrics for each iteration of the training phase
-            writer.add_scalar('training/loss1', train_main_loss1.val)
-            writer.add_scalar('training/loss2', train_main_loss2.val)
-            writer.add_scalar('training/loss', (train_main_loss.val),
-                              curr_iter)
-            writer.add_scalar('training/lr', optim.param_groups[-1]['lr'],
-                              curr_iter)
+            writer.add_scalar('training/loss1', (train_main_loss1.val), curr_iter)
+            writer.add_scalar('training/loss2', (train_main_loss2.val), curr_iter)
+            writer.add_scalar('training/loss', (train_main_loss.val), curr_iter)
+            writer.add_scalar('training/lr', optim.param_groups[-1]['lr'], curr_iter)
 
         if i > 5 and args.test_mode:
             return
@@ -293,7 +295,7 @@ def validate(val_loader, net, criterion, optim, curr_epoch, writer):
     dump_images = []
 
     for val_idx, data in enumerate(val_loader):
-        inputs, gt_image, img_names, inputs2, gt_image2, img_name2 = data
+        inputs, gt_image, img_names, inputs2, gt_image2, img_names2 = data
         assert len(inputs.size()) == 4 and len(gt_image.size()) == 3
         assert inputs.size()[2:] == gt_image.size()[1:]
 
@@ -307,7 +309,7 @@ def validate(val_loader, net, criterion, optim, curr_epoch, writer):
         assert output1.size()[2:] == gt_image.size()[1:]
         assert output1.size()[1] == args.dataset_cls.num_classes
 
-        val_loss1.update(criterion(output1, gt_cuda1).item(), batch_pixel_size)
+        val_loss1.update(criterion(output1, gt_cuda).item(), batch_pixel_size)
         val_loss2.update(criterion(output2, gt_cuda2).item(), batch_pixel_size)
         predictions1 = output1.data.max(1)[1].cpu()
         predictions2 = output2.data.max(1)[1].cpu()
@@ -324,7 +326,7 @@ def validate(val_loader, net, criterion, optim, curr_epoch, writer):
             dump_images.append([gt_image, predictions1, img_names])
             dump_images.append([gt_image2, predictions2, img_names2])
 
-        iou_acc1 += fast_hist(predictions1.numpy().flatten(), gt_image1.numpy().flatten(),
+        iou_acc1 += fast_hist(predictions1.numpy().flatten(), gt_image.numpy().flatten(),
                              args.dataset_cls.num_classes1)
         iou_acc2 += fast_hist(predictions2.numpy().flatten(), gt_image2.numpy().flatten(),
                              args.dataset_cls.num_classes2)
@@ -342,7 +344,7 @@ def validate(val_loader, net, criterion, optim, curr_epoch, writer):
         evaluate_eval_multi(args, net, optim, val_loss1, val_loss2, iou_acc1, iou_acc2, dump_images,
                       writer, curr_epoch, args.dataset_cls)
 
-    return val_loss.avg
+    return val_loss1.avg, val_loss2.avg
 
 
 if __name__ == '__main__':

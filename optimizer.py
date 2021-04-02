@@ -93,6 +93,14 @@ def forgiving_state_restore(net, loaded_dict):
     for k in net_state_dict:
         if k in loaded_dict and net_state_dict[k].size() == loaded_dict[k].size():
             new_loaded_dict[k] = loaded_dict[k]
+        elif 'bn2.semantic' in k and 'num_batches_tracked' not in k:
+            new_loaded_dict[k] = loaded_dict[k.replace('.semantic', '')]
+        elif 'bn2.traversability' in k and 'num_batches_tracked' not in k:
+            new_loaded_dict[k] = loaded_dict[k.replace('.traversability', '')]
+        elif 'bn3.semantic' in k and 'num_batches_tracked' not in k:
+            new_loaded_dict[k] = loaded_dict[k.replace('.semantic', '')]
+        elif 'bn3.traversability' in k and 'num_batches_tracked' not in k:
+            new_loaded_dict[k] = loaded_dict[k.replace('.traversability', '')]
         elif 'aspp2' in k:
             new_loaded_dict[k] = loaded_dict[k.replace('aspp2', 'aspp')]
         elif 'bot_fine2' in k:
