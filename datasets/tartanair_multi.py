@@ -27,7 +27,7 @@ ignore_label = 255
 root = cfg.DATASET.TARTANAIR_DIR_RGB
 root1 = cfg.DATASET.TARTANAIR_DIR_SEMANTIC
 root2 = cfg.DATASET.TARTANAIR_DIR_TRAV
-num_images = 40
+num_images = 2140
 
 palette1 = [128, 64, 128, 244, 35, 232, 70, 70, 70, 102, 102, 156, 190, 153, 153,
             153, 153, 153, 250, 170, 30,
