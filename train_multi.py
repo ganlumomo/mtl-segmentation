@@ -249,10 +249,16 @@ def train(train_loader, net, optim, curr_epoch, writer, tasks):
         train_main_loss.update(log_main_loss.item(), batch_pixel_size)
         
         if args.fp16:
-            with amp.scale_loss(main_loss, optim) as scaled_loss:
+            #with amp.scale_loss(main_loss, optim) as scaled_loss:
+                #scaled_loss.backward()
+            with amp.scale_loss(main_loss1, optim) as scaled_loss:
+                scaled_loss.backward(retain_graph=True)
+            with amp.scale_loss(main_loss2, optim) as scaled_loss:
                 scaled_loss.backward()
         else:
-            main_loss.backward()
+            #main_loss.backward()
+            main_loss1.backward(retain_graph=True)
+            main_loss2.backward()
 
         optim.step()
 

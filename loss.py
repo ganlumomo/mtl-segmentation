@@ -21,10 +21,6 @@ def get_loss(args, tasks=None):
                                        weight=None,
                                        ignore_index=args.dataset_cls.ignore_label).cuda()
     if args.img_wt_loss:
-        criterion = ImageBasedCrossEntropyLoss2d(
-            classes=args.dataset_cls.num_classes, size_average=True,
-            ignore_index=args.dataset_cls.ignore_label,
-            upper_bound=args.wt_bound).cuda()
         if tasks is not None:
             criterion1 = ImageBasedCrossEntropyLoss2d(
                 classes=args.dataset_cls.num_classes1, size_average=True,
@@ -35,6 +31,10 @@ def get_loss(args, tasks=None):
                 ignore_index=args.dataset_cls.ignore_label,
                 upper_bound=args.wt_bound).cuda()
             return criterion1, criterion2, criterion_val
+        criterion = ImageBasedCrossEntropyLoss2d(
+            classes=args.dataset_cls.num_classes, size_average=True,
+            ignore_index=args.dataset_cls.ignore_label,
+            upper_bound=args.wt_bound).cuda()
     elif args.jointwtborder:
         criterion = ImgWtLossSoftNLL(classes=args.dataset_cls.num_classes,
                                      ignore_index=args.dataset_cls.ignore_label,
