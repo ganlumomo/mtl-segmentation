@@ -281,7 +281,7 @@ class DeepWV3Plus(nn.Module):
            
 
 
-    def forward(self, inp, gts=None, gts2=None):
+    def forward(self, inp, gts=None, task=None):
 
         x_size = inp.size()
         x = self.mod1(inp)
@@ -308,9 +308,9 @@ class DeepWV3Plus(nn.Module):
             return out
         else:
             x_task = []
-            for task in self.tasks:
-                x = self.mod6(x_tmp, task=task)
-                x = self.mod7(x, task=task)
+            for t in self.tasks:
+                x = self.mod6(x_tmp, task=t)
+                x = self.mod7(x, task=t)
                 x_task.append(x)
 
             x = self.aspp(x_task[0])
@@ -332,7 +332,10 @@ class DeepWV3Plus(nn.Module):
             out2 = Upsample(dec1, x_size[2:])
             
             if self.training:
-                return self.criterion(out1, gts), self.criterion2(out2, gts2)
+                if task == 'semantic':
+                    return self.criterion(out1, gts)
+                elif task == 'traversability':
+                    return self.criterion2(out2, gts)
             return out1, out2
 
 

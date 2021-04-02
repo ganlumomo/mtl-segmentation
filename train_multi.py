@@ -16,6 +16,8 @@ import loss
 import network
 import optimizer
 
+from torchvision import transforms
+from PIL import Image
 
 # Argument Parser
 parser = argparse.ArgumentParser(description='Semantic Segmentation')
@@ -221,10 +223,21 @@ def train(train_loader, net, optim, curr_epoch, writer, tasks):
 
         inputs, gts = inputs.cuda(), gts.cuda()
         inputs2, gts2 = inputs2.cuda(), gts2.cuda()
+        
+        # DEBUG
+        '''img = transforms.ToPILImage()(inputs[0,:].squeeze_(0))
+        img.save('images/inputs.png')
+        img = transforms.ToPILImage()(gts[0,:].type(torch.DoubleTensor))
+        img.save('images/gts.png')
+        img = transforms.ToPILImage()(inputs2[0,:].squeeze_(0))
+        img.save('images/inputs2.png')
+        img = transforms.ToPILImage()(gts2[0,:].type(torch.DoubleTensor))
+        img.save('images/gts2.png')'''
 
         optim.zero_grad()
 
-        main_loss1, main_loss2 = net(inputs, gts=gts, gts2=gts2)
+        main_loss1 = net(inputs, gts=gts, task='semantic')
+        main_loss2 = net(inputs2, gts=gts2, task='traversability')
         main_loss = main_loss1 + main_loss2
 
         if args.apex:
@@ -249,16 +262,16 @@ def train(train_loader, net, optim, curr_epoch, writer, tasks):
         train_main_loss.update(log_main_loss.item(), batch_pixel_size)
         
         if args.fp16:
-            #with amp.scale_loss(main_loss, optim) as scaled_loss:
-                #scaled_loss.backward()
-            with amp.scale_loss(main_loss1, optim) as scaled_loss:
+            with amp.scale_loss(main_loss, optim) as scaled_loss:
+                scaled_loss.backward()
+            '''with amp.scale_loss(main_loss1, optim) as scaled_loss:
                 scaled_loss.backward(retain_graph=True)
             with amp.scale_loss(main_loss2, optim) as scaled_loss:
-                scaled_loss.backward()
+                scaled_loss.backward()'''
         else:
-            #main_loss.backward()
-            main_loss1.backward(retain_graph=True)
-            main_loss2.backward()
+            main_loss.backward()
+            '''main_loss1.backward(retain_graph=True)
+            main_loss2.backward()'''
 
         optim.step()
 
@@ -310,10 +323,13 @@ def validate(val_loader, net, criterion, optim, curr_epoch, writer):
         inputs2, gt_cuda2 = inputs2.cuda(), gt_image2.cuda()
 
         with torch.no_grad():
-            output1, output2 = net(inputs)  # output = (1, 19, 713, 713)
+            output1, _ = net(inputs)  # output = (1, 19, 713, 713)
+            _, output2 = net(inputs2)
 
         assert output1.size()[2:] == gt_image.size()[1:]
-        assert output1.size()[1] == args.dataset_cls.num_classes
+        assert output1.size()[1] == args.dataset_cls.num_classes1
+        assert output2.size()[2:] == gt_image2.size()[1:]
+        assert output2.size()[1] == args.dataset_cls.num_classes2
 
         val_loss1.update(criterion(output1, gt_cuda).item(), batch_pixel_size)
         val_loss2.update(criterion(output2, gt_cuda2).item(), batch_pixel_size)

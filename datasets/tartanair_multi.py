@@ -1,5 +1,5 @@
 """
-KITTI Dataset Loader
+TartanAir Multi Dataset Loader
 http://www.cvlibs.net/datasets/kitti/eval_semseg.php?benchmark=semantics2015
 """
 
@@ -16,39 +16,37 @@ from config import cfg
 
 import random
 
-
 trainid_to_name = tartanair_labels.trainId2name
 id_to_trainid1 = tartanair_labels.label2trainid
-id_to_trainid2 = {0:0,1:1}
+id_to_trainid2 = {0:0, 1:1}
+num_classes = 30
 num_classes1 = 30
 num_classes2 = 2
-num_classes = 30
 ignore_label = 255
 root = cfg.DATASET.TARTANAIR_DIR_RGB
 root1 = cfg.DATASET.TARTANAIR_DIR_SEMANTIC
 root2 = cfg.DATASET.TARTANAIR_DIR_TRAV
 num_images = 2140
 
-palette1 = [128, 64, 128, 244, 35, 232, 70, 70, 70, 102, 102, 156, 190, 153, 153,
-            153, 153, 153, 250, 170, 30,
-            220, 220, 0, 107, 142, 35, 152, 251, 152, 70, 130, 180, 220, 20, 60,
-            255, 0, 0, 0, 0, 142, 0, 0, 70,
-            0, 60, 100, 0, 80, 100, 0, 0, 230, 119, 11, 32]
-palette2 = [0, 255, 0, 0, 0, 255]
-zero_pad = 256 * 3 - len(palette1)
+palette = [128, 64, 128, 244, 35, 232, 70, 70, 70, 102, 102, 156, 190, 153, 153,
+           153, 153, 153, 250, 170, 30,
+           220, 220, 0, 107, 142, 35, 152, 251, 152, 70, 130, 180, 220, 20, 60,
+           255, 0, 0, 0, 0, 142, 0, 0, 70,
+           0, 60, 100, 0, 80, 100, 0, 0, 230, 119, 11, 32]
+zero_pad = 256 * 3 - len(palette)
 for i in range(zero_pad):
-    palette1.append(0)
+    palette.append(0)
 
 def colorize_mask(mask):
     # mask: numpy array of the mask
     new_mask = Image.fromarray(mask.astype(np.uint8)).convert('P')
-    new_mask.putpalette(palette1)
+    new_mask.putpalette(palette)
     return new_mask
 
 def get_train_val(cv_split, all_items):
     # 90/10 train/val split, three random splits for cross validation
-    val_0 = []
-    val_1 = []
+    val_0 = [1,5,11,29,35,49,57,68,72,82,93,115,119,130,145,154,156,167,169,189,198]
+    val_1 = [0,12,24,31,42,50,63,71,84,96,101,112,121,133,141,155,164,171,187,191,197]
     #val_2 = [3,6,13,21,41,54,61,73,88,91,110,121,126,131,142,149,150,163,173,183,199]
     val_2 = random.sample(range(num_images), int(0.1 * num_images))
 
@@ -79,11 +77,12 @@ def get_train_val(cv_split, all_items):
 
     return train_set, val_set
 
-def make_dataset(img_path, mask_path, quality, mode, maxSkip=0, cv_split=0, hardnm=0):
+def make_dataset(img_path, mask_path, mask2_path, mode, maxSkip=0, cv_split=0, hardnm=0):
     items = []
     all_items = []
+    aug_items = []
 
-    assert quality == 'semantic'
+    #assert quality == 'semantic'
     assert mode in ['train', 'val', 'trainval']
     # note that train and val are randomly determined, no official split
 
@@ -91,12 +90,11 @@ def make_dataset(img_path, mask_path, quality, mode, maxSkip=0, cv_split=0, hard
     #img_path = os.path.join(root, img_dir_name, 'image_2')
     #mask_path = os.path.join(root, img_dir_name, 'semantic')
 
-    #c_items = os.listdir(img_path)
-    c_items = os.listdir(mask_path)
+    c_items = os.listdir(img_path)
     c_items.sort()
 
     for it in c_items:
-        item = (os.path.join(img_path, it), os.path.join(mask_path, it))
+        item = (os.path.join(img_path, it), os.path.join(mask_path, it), os.path.join(mask2_path, it))
         all_items.append(item)
     logging.info('TartanAir has a total of {} images'.format(len(all_items)))
 
@@ -113,11 +111,17 @@ def make_dataset(img_path, mask_path, quality, mode, maxSkip=0, cv_split=0, hard
         logging.info('Unknown mode {}'.format(mode))
         sys.exit()
 
-    logging.info('TartanAir-{}: {} images'.format(mode, len(items)))
+    # unpack two tasks
+    items1 = []
+    items2 = []
+    for it in items:
+        items1.append((it[0], it[1]))
+        items2.append((it[0], it[2]))
+    logging.info('TantanAir-{}: {} images'.format(mode, len(items)))
+    
+    return items1, items2
 
-    return items
-
-def make_test_dataset(root, quality, mode, maxSkip=0, cv_split=0):
+def make_test_dataset(quality, mode, maxSkip=0, cv_split=0):
     items = []
     assert quality == 'semantic'
     assert mode == 'test'
@@ -132,7 +136,7 @@ def make_test_dataset(root, quality, mode, maxSkip=0, cv_split=0):
         items.append(item)
     logging.info('KITTI has a total of {} test images'.format(len(items)))
 
-    return items
+    return items, []
 
 class TartanAir_Multi(data.Dataset):
 
@@ -162,13 +166,10 @@ class TartanAir_Multi(data.Dataset):
             self.cv_split = 0
 
         if self.mode == 'test':
-            self.imgs1 = make_test_dataset(root1, quality, mode, self.maxSkip, cv_split=self.cv_split)
-            self.imgs2 = make_test_dataset(root2, quality, mode, self.maxSkip, cv_split=self.cv_split)
+            self.imgs, _ = make_test_dataset(quality, mode, self.maxSkip, cv_split=self.cv_split)
         else:
-            self.imgs1 = make_dataset(root, root1, quality, mode, self.maxSkip, cv_split=self.cv_split, hardnm=self.hardnm)
-            self.imgs2 = make_dataset(root, root2, quality, mode, self.maxSkip, cv_split=self.cv_split, hardnm=self.hardnm)
-        assert len(self.imgs1), 'Found 0 images, please check the data set'
-        assert len(self.imgs2), 'Found 0 images, please check the data set'
+            self.imgs1, self.imgs2 = make_dataset(root, root1, root2, mode, self.maxSkip, cv_split=self.cv_split, hardnm=self.hardnm)
+            assert len(self.imgs1), 'Found 0 images, please check the data set'
 
         # Centroids for GT data
         if self.class_uniform_pct > 0:
@@ -239,15 +240,13 @@ class TartanAir_Multi(data.Dataset):
             img_path1, mask_path1, centroid1, class_id1 = elem1
         else:
             img_path1, mask_path1 = elem1
-
         if len(elem2) == 4:
             img_path2, mask_path2, centroid2, class_id2 = elem2
         else:
             img_path2, mask_path2 = elem2
 
         if self.mode == 'test':
-            img1, mask1 = Image.open(img_path1).convert('RGB'), None
-            img2, mask2 = Image.open(img_path2).convert('RGB'), None
+            img, mask = Image.open(img_path).convert('RGB'), None
         else:
             img1, mask1 = Image.open(img_path1).convert('RGB'), Image.open(mask_path1)
             img2, mask2 = Image.open(img_path2).convert('RGB'), Image.open(mask_path2)
@@ -257,33 +256,30 @@ class TartanAir_Multi(data.Dataset):
         # kitti scale correction factor
         if self.mode == 'train' or self.mode == 'trainval':
             if self.scf:
-                width, height = img1.size
-                img1 = img1.resize((width*2, height*2), Image.BICUBIC)
-                mask1 = mask1.resize((width*2, height*2), Image.NEAREST)
-                width, height = img2.size
-                img2 = img2.resize((width*2, height*2), Image.BICUBIC)
-                mask2 = mask2.resize((width*2, height*2), Image.NEAREST)
+                width1, height1 = img1.size
+                width2, height2 = img2.size
+                img1 = img1.resize((width1*2, height1*2), Image.BICUBIC)
+                img2 = img2.resize((width2*2, height2*2), Image.BICUBIC)
+                mask1 = mask1.resize((width1*2, height1*2), Image.NEAREST)
+                mask2 = mask2.resize((width2*2, height2*2), Image.NEAREST)
         elif self.mode == 'val':
             width, height = 1242, 376
-            img1 = img1.resize((width, height), Image.BICUBIC)
-            mask1 = mask1.resize((width, height), Image.NEAREST)
-            img2 = img2.resize((width, height), Image.BICUBIC)
-            mask2 = mask2.resize((width, height), Image.NEAREST)
+            img1 = img1.resize((width1, height1), Image.BICUBIC)
+            img2 = img2.resize((width2, height2), Image.BICUBIC)
+            mask1 = mask1.resize((width1, height1), Image.NEAREST)
+            mask2 = mask2.resize((width2, height2), Image.NEAREST)
         elif self.mode == 'test':
-            img_keepsize1 = img1.copy()
+            img_keepsize = img.copy()
             width, height = 1280, 384
-            img1 = img1.resize((width, height), Image.BICUBIC)
-            img_keepsize2 = img2.copy()
-            width, height = 1280, 384
-            img2 = img2.resize((width, height), Image.BICUBIC)
+            img = img.resize((width, height), Image.BICUBIC)
         else:
             logging.info('Unknown mode {}'.format(mode))
             sys.exit()
 
         if self.mode != 'test':
             mask1 = np.array(mask1)
-            mask_copy1 = mask1.copy()
             mask2 = np.array(mask2)
+            mask_copy1 = mask1.copy()
             mask_copy2 = mask2.copy()
 
             for k, v in id_to_trainid1.items():
@@ -297,33 +293,37 @@ class TartanAir_Multi(data.Dataset):
         if self.joint_transform_list is not None:
             for idx, xform in enumerate(self.joint_transform_list):
                 if idx == 0 and centroid1 is not None:
+                    # HACK
+                    # We assume that the first transform is capable of taking
+                    # in a centroid
                     img1, mask1 = xform(img1, mask1, centroid1)
                 else:
                     img1, mask1 = xform(img1, mask1)
                 if idx == 0 and centroid2 is not None:
+                    # HACK
+                    # We assume that the first transform is capable of taking
+                    # in a centroid
                     img2, mask2 = xform(img2, mask2, centroid2)
                 else:
                     img2, mask2 = xform(img2, mask2)
 
-#        # Debug
-#        if self.dump_images and centroid is not None:
-#            outdir = './dump_imgs_{}'.format(self.mode)
-#            os.makedirs(outdir, exist_ok=True)
-#            dump_img_name = trainid_to_name[class_id] + '_' + img_name
-#            out_img_fn = os.path.join(outdir, dump_img_name + '.png')
-#            out_msk_fn = os.path.join(outdir, dump_img_name + '_mask.png')
-#            mask_img = colorize_mask(np.array(mask))
-#            img.save(out_img_fn)
-#            mask_img.save(out_msk_fn)
+        # Debug
+        '''if self.dump_images and centroid is not None:
+            outdir = './dump_imgs_{}'.format(self.mode)
+            os.makedirs(outdir, exist_ok=True)
+            dump_img_name = trainid_to_name[class_id] + '_' + img_name
+            out_img_fn = os.path.join(outdir, dump_img_name + '.png')
+            out_msk_fn = os.path.join(outdir, dump_img_name + '_mask.png')
+            mask_img = colorize_mask(np.array(mask))
+            img.save(out_img_fn)
+            mask_img.save(out_msk_fn)'''
 
         if self.transform is not None:
             img1 = self.transform(img1)
             img2 = self.transform(img2)
             if self.mode == 'test':
-                img_keepsize1 = self.transform(img_keepsize1)
-                mask1 = img_keepsize1
-                img_keepsize2 = self.transform(img_keepsize2)
-                mask2 = img_keepsize2
+                img_keepsize = self.transform(img_keepsize)
+                mask = img_keepsize
         if self.target_transform is not None:
             if self.mode != 'test':
                 mask1 = self.target_transform(mask1)
