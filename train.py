@@ -16,6 +16,8 @@ import loss
 import network
 import optimizer
 
+from torchvision import transforms
+from PIL import Image
 
 # Argument Parser
 parser = argparse.ArgumentParser(description='Semantic Segmentation')
@@ -208,6 +210,12 @@ def train(train_loader, net, optim, curr_epoch, writer):
 
     for i, data in enumerate(train_loader):
         inputs, gts, _img_name = data
+        
+        # DEBUG
+        '''img = transforms.ToPILImage()(inputs[0,:].squeeze_(0))
+        img.save('images/inputs.png')
+        img = transforms.ToPILImage()(gts[0,:].type(torch.DoubleTensor))
+        img.save('images/gts.png')'''
 
         batch_pixel_size = inputs.size(0) * inputs.size(2) * inputs.size(3)
 
