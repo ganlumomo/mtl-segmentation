@@ -263,11 +263,11 @@ class TartanAir_Multi(data.Dataset):
                 mask1 = mask1.resize((width1*2, height1*2), Image.NEAREST)
                 mask2 = mask2.resize((width2*2, height2*2), Image.NEAREST)
         elif self.mode == 'val':
-            width, height = 1242, 376
-            img1 = img1.resize((width1, height1), Image.BICUBIC)
-            img2 = img2.resize((width2, height2), Image.BICUBIC)
-            mask1 = mask1.resize((width1, height1), Image.NEAREST)
-            mask2 = mask2.resize((width2, height2), Image.NEAREST)
+            width, height = 640, 480
+            img1 = img1.resize((width, height), Image.BICUBIC)
+            img2 = img2.resize((width, height), Image.BICUBIC)
+            mask1 = mask1.resize((width, height), Image.NEAREST)
+            mask2 = mask2.resize((width, height), Image.NEAREST)
         elif self.mode == 'test':
             img_keepsize = img.copy()
             width, height = 1280, 384
