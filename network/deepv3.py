@@ -278,9 +278,11 @@ class DeepWV3Plus(nn.Module):
                 nn.Conv2d(256, 2, kernel_size=1, bias=False))
 
             initialize_weights(self.final2)
-           
+            self.task_weights = torch.nn.Parameter(torch.ones(2, requires_grad=True))
 
-
+    def get_last_shared_layer(self):
+        return self.mod5
+    
     def forward(self, inp, gts=None, task=None):
 
         x_size = inp.size()

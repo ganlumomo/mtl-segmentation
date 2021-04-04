@@ -10,7 +10,7 @@ import torch
 from apex import amp
 
 from config import cfg, assert_and_infer_cfg
-from utils.misc import AverageMeter, prep_experiment, evaluate_eval, fast_hist
+from utils.misc import AverageMeter, prep_experiment, evaluate_eval_multi, fast_hist
 import datasets
 import loss
 import network
@@ -125,6 +125,10 @@ parser.add_argument('--maxSkip', type=int, default=0,
 parser.add_argument('--scf', action='store_true', default=False,
                     help='scale correction factor')
 args = parser.parse_args()
+args.best_record1 = {'epoch': -1, 'iter': 0, 'val_loss1': 1e10, 'acc1': 0,
+                    'acc_cls1': 0, 'mean_iu1': 0, 'fwavacc1': 0}
+args.best_record2 = {'epoch': -1, 'iter': 0, 'val_loss2': 1e10, 'acc2': 0,
+                    'acc_cls2': 0, 'mean_iu2': 0, 'fwavacc2': 0}
 args.best_record = {'epoch': -1, 'iter': 0, 'val_loss': 1e10, 'acc': 0,
                     'acc_cls': 0, 'mean_iu': 0, 'fwavacc': 0}
 
@@ -158,8 +162,10 @@ def main():
     assert_and_infer_cfg(args)
     writer = prep_experiment(args, parser)
     train_loader, val_loader, train_obj = datasets.setup_loaders(args)
-    criterion, criterion_val = loss.get_loss(args)
-    net = network.get_net(args, criterion)
+
+    tasks = ['semantic', 'traversability']
+    criterion, criterion2, criterion_val = loss.get_loss(args, tasks=tasks)
+    net = network.get_net(args, criterion=criterion, criterion2=criterion2, tasks=tasks)
     optim, scheduler = optimizer.get_optimizer(args, net)
 
     if args.fp16:
@@ -172,6 +178,7 @@ def main():
 
     torch.cuda.empty_cache()
     # Main Loop
+    initial_task_loss = []
     for epoch in range(args.start_epoch, args.max_epoch):
         # Update EPOCH CTR
         cfg.immutable(False)
@@ -179,7 +186,7 @@ def main():
         cfg.immutable(True)
 
         scheduler.step()
-        train(train_loader, net, optim, epoch, writer)
+        initial_task_loss = train(train_loader, net, optim, epoch, writer, tasks, initial_task_loss)
         if args.apex:
             train_loader.sampler.set_epoch(epoch + 1)
         validate(val_loader, net, criterion_val,
@@ -193,7 +200,7 @@ def main():
                 train_obj.build_epoch()
 
 
-def train(train_loader, net, optim, curr_epoch, writer):
+def train(train_loader, net, optim, curr_epoch, writer, tasks, initial_task_loss):
     """
     Runs the training loop per epoch
     train_loader: Data loader for train
@@ -205,60 +212,134 @@ def train(train_loader, net, optim, curr_epoch, writer):
     """
     net.train()
 
+    GradNormLoss = torch.nn.L1Loss()
+
+    train_main_loss1 = AverageMeter()
+    train_main_loss2 = AverageMeter()
     train_main_loss = AverageMeter()
     curr_iter = curr_epoch * len(train_loader)
 
     for i, data in enumerate(train_loader):
-        inputs, gts, _img_name = data
+        inputs, gts, _img_name, inputs2, gts2, _img_name2 = data
+
+        batch_pixel_size = inputs.size(0) * inputs.size(2) * inputs.size(3)
+
+        inputs, gts = inputs.cuda(), gts.cuda()
+        inputs2, gts2 = inputs2.cuda(), gts2.cuda()
         
         # DEBUG
         '''img = transforms.ToPILImage()(inputs[0,:].squeeze_(0))
         img.save('images/inputs.png')
         img = transforms.ToPILImage()(gts[0,:].type(torch.DoubleTensor))
-        img.save('images/gts.png')'''
-
-        batch_pixel_size = inputs.size(0) * inputs.size(2) * inputs.size(3)
-
-        inputs, gts = inputs.cuda(), gts.cuda()
+        img.save('images/gts.png')
+        img = transforms.ToPILImage()(inputs2[0,:].squeeze_(0))
+        img.save('images/inputs2.png')
+        img = transforms.ToPILImage()(gts2[0,:].type(torch.DoubleTensor))
+        img.save('images/gts2.png')'''
 
         optim.zero_grad()
 
-        main_loss = net(inputs, gts=gts)
+        main_loss1 = net(inputs, gts=gts, task='semantic')
+        main_loss2 = net(inputs2, gts=gts2, task='traversability')
+        #main_loss = main_loss1 + main_loss2
+
+        task_loss = []
+        task_loss.append(main_loss1)
+        task_loss.append(main_loss2)
+        task_loss = torch.stack(task_loss)
+        weighted_task_loss = torch.mul(net.module.task_weights, task_loss)
+
+	# Initialize the initial loss L(0) if t=0
+        if curr_iter == 0:
+            initial_task_loss = task_loss.data
+
+	# get the total loss
+        main_loss = torch.sum(weighted_task_loss)
 
         if args.apex:
+            log_main_loss1 = main_loss1.clone().detach_()
+            log_main_loss2 = main_loss2.clone().detach_()
             log_main_loss = main_loss.clone().detach_()
+            torch.distributed.all_reduce(log_main_loss1, torch.distributed.ReduceOp.SUM)
+            torch.distributed.all_reduce(log_main_loss2, torch.distributed.ReduceOp.SUM)
             torch.distributed.all_reduce(log_main_loss, torch.distributed.ReduceOp.SUM)
+            log_main_loss1 = log_main_loss1 / args.world_size
+            log_main_loss2 = log_main_loss2 / args.world_size
             log_main_loss = log_main_loss / args.world_size
         else:
+            main_loss1 = main_loss1.mean()
+            main_loss2 = main_loss2.mean()
             main_loss = main_loss.mean()
+            log_main_loss1 = main_loss1.clone().detach_()
+            log_main_loss2 = main_loss2.clone().detach_()
             log_main_loss = main_loss.clone().detach_()
-
+        train_main_loss1.update(log_main_loss1.item(), batch_pixel_size)
+        train_main_loss2.update(log_main_loss2.item(), batch_pixel_size)
         train_main_loss.update(log_main_loss.item(), batch_pixel_size)
+        
         if args.fp16:
             with amp.scale_loss(main_loss, optim) as scaled_loss:
                 scaled_loss.backward()
+            '''with amp.scale_loss(main_loss1, optim) as scaled_loss:
+                scaled_loss.backward(retain_graph=True)
+            with amp.scale_loss(main_loss2, optim) as scaled_loss:
+                scaled_loss.backward()'''
         else:
-            main_loss.backward()
+            main_loss.backward(retain_graph=True)
+            '''main_loss1.backward(retain_graph=True)
+            main_loss2.backward()'''
+
+	# Set the gradients of w_i(t) according to GradNorm loss
+        net.module.task_weights.grad.data = net.module.task_weights.grad.data * 0.0
+        if True:
+            W = net.module.get_last_shared_layer()
+            norms = []
+            for t in range(len(task_loss)):
+                gygw = torch.autograd.grad(task_loss[t], W.parameters(), retain_graph=True)
+                norms.append(torch.norm(torch.mul(net.module.task_weights[t], gygw[0]), p=2))
+            norms = torch.stack(norms)
+            mean_norm = torch.mean(norms)
+            #print('G_w(t): {}'.format(norms))
+              
+            # compute the inverse training rate r_i(t)
+            loss_ratio = task_loss / initial_task_loss
+            inverse_train_rate = loss_ratio / torch.mean(loss_ratio)
+
+            # compute the GradNorm loss
+            constant_term = mean_norm * (inverse_train_rate ** 0.15)
+            constant_term = constant_term.detach()
+            # this is the GradNorm loss itself
+            grad_norm_loss = torch.add(GradNormLoss(norms[0], constant_term[0]), GradNormLoss(norms[1], constant_term[1]))
+            # compute the gradient for the task weights
+            net.module.task_weights.grad = torch.autograd.grad(grad_norm_loss, net.module.task_weights)[0]
 
         optim.step()
+
+        # renormalize task weights
+        normalize_coeff = 2.0 / torch.sum(net.module.task_weights.data, dim=0)
+        net.module.task_weights.data = net.module.task_weights.data * normalize_coeff
 
         curr_iter += 1
 
         if args.local_rank == 0:
-            msg = '[epoch {}], [iter {} / {}], [train main loss {:0.6f}], [lr {:0.6f}]'.format(
-                curr_epoch, i + 1, len(train_loader), train_main_loss.avg,
+            msg = '[epoch {}], [iter {} / {}], [loss1 {:0.6f}], [loss2 {:0.6f}], [w1 {:0.6f}], [w2 {:0.6f}], [main loss {:0.6f}], [lr {:0.6f}]'.format(
+                curr_epoch, i + 1, len(train_loader), train_main_loss1.avg, train_main_loss2.avg,
+                net.module.task_weights.data[0], net.module.task_weights.data[1], train_main_loss.avg,
                 optim.param_groups[-1]['lr'])
 
             logging.info(msg)
 
             # Log tensorboard metrics for each iteration of the training phase
-            writer.add_scalar('training/loss', (train_main_loss.val),
-                              curr_iter)
-            writer.add_scalar('training/lr', optim.param_groups[-1]['lr'],
-                              curr_iter)
+            writer.add_scalar('training/weight1', net.module.task_weights.data[0], curr_iter)
+            writer.add_scalar('training/weight2', net.module.task_weights.data[1], curr_iter)
+            writer.add_scalar('training/loss1', (train_main_loss1.val), curr_iter)
+            writer.add_scalar('training/loss2', (train_main_loss2.val), curr_iter)
+            writer.add_scalar('training/loss', (train_main_loss.val), curr_iter)
+            writer.add_scalar('training/lr', optim.param_groups[-1]['lr'], curr_iter)
 
         if i > 5 and args.test_mode:
             return
+    return initial_task_loss
 
 
 def validate(val_loader, net, criterion, optim, curr_epoch, writer):
@@ -274,26 +355,34 @@ def validate(val_loader, net, criterion, optim, curr_epoch, writer):
     """
 
     net.eval()
-    val_loss = AverageMeter()
-    iou_acc = 0
+    val_loss1 = AverageMeter()
+    val_loss2 = AverageMeter()
+    iou_acc1 = 0
+    iou_acc2 = 0
     dump_images = []
 
     for val_idx, data in enumerate(val_loader):
-        inputs, gt_image, img_names = data
+        inputs, gt_image, img_names, inputs2, gt_image2, img_names2 = data
         assert len(inputs.size()) == 4 and len(gt_image.size()) == 3
         assert inputs.size()[2:] == gt_image.size()[1:]
 
         batch_pixel_size = inputs.size(0) * inputs.size(2) * inputs.size(3)
         inputs, gt_cuda = inputs.cuda(), gt_image.cuda()
+        inputs2, gt_cuda2 = inputs2.cuda(), gt_image2.cuda()
 
         with torch.no_grad():
-            output = net(inputs)  # output = (1, 19, 713, 713)
+            output1, _ = net(inputs)  # output = (1, 19, 713, 713)
+            _, output2 = net(inputs2)
 
-        assert output.size()[2:] == gt_image.size()[1:]
-        assert output.size()[1] == args.dataset_cls.num_classes
+        assert output1.size()[2:] == gt_image.size()[1:]
+        assert output1.size()[1] == args.dataset_cls.num_classes1
+        assert output2.size()[2:] == gt_image2.size()[1:]
+        assert output2.size()[1] == args.dataset_cls.num_classes2
 
-        val_loss.update(criterion(output, gt_cuda).item(), batch_pixel_size)
-        predictions = output.data.max(1)[1].cpu()
+        val_loss1.update(criterion(output1, gt_cuda).item(), batch_pixel_size)
+        val_loss2.update(criterion(output2, gt_cuda2).item(), batch_pixel_size)
+        predictions1 = output1.data.max(1)[1].cpu()
+        predictions2 = output2.data.max(1)[1].cpu()
 
         # Logging
         if val_idx % 20 == 0:
@@ -304,22 +393,28 @@ def validate(val_loader, net, criterion, optim, curr_epoch, writer):
 
         # Image Dumps
         if val_idx < 10:
-            dump_images.append([gt_image, predictions, img_names])
+            dump_images.append([gt_image, predictions1, img_names])
+            dump_images.append([gt_image2, predictions2, img_names2])
 
-        iou_acc += fast_hist(predictions.numpy().flatten(), gt_image.numpy().flatten(),
-                             args.dataset_cls.num_classes)
-        del output, val_idx, data
+        iou_acc1 += fast_hist(predictions1.numpy().flatten(), gt_image.numpy().flatten(),
+                             args.dataset_cls.num_classes1)
+        iou_acc2 += fast_hist(predictions2.numpy().flatten(), gt_image2.numpy().flatten(),
+                             args.dataset_cls.num_classes2)
+        del output1, output2, val_idx, data
 
     if args.apex:
-        iou_acc_tensor = torch.cuda.FloatTensor(iou_acc)
-        torch.distributed.all_reduce(iou_acc_tensor, op=torch.distributed.ReduceOp.SUM)
-        iou_acc = iou_acc_tensor.cpu().numpy()
+        iou_acc_tensor1 = torch.cuda.FloatTensor(iou_acc1)
+        iou_acc_tensor2 = torch.cuda.FloatTensor(iou_acc2)
+        torch.distributed.all_reduce(iou_acc_tensor1, op=torch.distributed.ReduceOp.SUM)
+        torch.distributed.all_reduce(iou_acc_tensor2, op=torch.distributed.ReduceOp.SUM)
+        iou_acc1 = iou_acc_tensor1.cpu().numpy()
+        iou_acc2 = iou_acc_tensor2.cpu().numpy()
 
     if args.local_rank == 0:
-        evaluate_eval(args, net, optim, val_loss, iou_acc, dump_images,
+        evaluate_eval_multi(args, net, optim, val_loss1, val_loss2, iou_acc1, iou_acc2, dump_images,
                       writer, curr_epoch, args.dataset_cls)
 
-    return val_loss.avg
+    return val_loss1.avg, val_loss2.avg
 
 
 if __name__ == '__main__':
