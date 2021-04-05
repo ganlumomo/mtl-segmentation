@@ -93,7 +93,9 @@ def forgiving_state_restore(net, loaded_dict):
     for k in net_state_dict:
         if k in loaded_dict and net_state_dict[k].size() == loaded_dict[k].size():
             new_loaded_dict[k] = loaded_dict[k]
-        elif 'bn2.semantic' in k and 'num_batches_tracked' not in k:
+        else:
+            logging.info("Skipped loading parameter %s", k)
+        '''elif 'bn2.semantic' in k and 'num_batches_tracked' not in k:
             new_loaded_dict[k] = loaded_dict[k.replace('.semantic', '')]
         elif 'bn2.traversability' in k and 'num_batches_tracked' not in k:
             new_loaded_dict[k] = loaded_dict[k.replace('.traversability', '')]
@@ -106,9 +108,7 @@ def forgiving_state_restore(net, loaded_dict):
         elif 'bot_fine2' in k:
             new_loaded_dict[k] = loaded_dict[k.replace('bot_fine2', 'bot_fine')]
         elif 'final2' in k and k != 'module.final2.6.weight':
-            new_loaded_dict[k] = loaded_dict[k.replace('final2', 'final')]
-        else:
-            logging.info("Skipped loading parameter %s", k)
+            new_loaded_dict[k] = loaded_dict[k.replace('final2', 'final')]'''
     net_state_dict.update(new_loaded_dict)
     net.load_state_dict(net_state_dict)
     return net

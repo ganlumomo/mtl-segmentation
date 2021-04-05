@@ -233,6 +233,26 @@ class DeepWV3Plus(nn.Module):
                 raise RuntimeError("=====================Could not load ImageNet weights of WideResNet38 network.=======================")
         wide_resnet = wide_resnet.module
 
+        if True:
+            for param in wide_resnet.parameters():
+                param.requires_grad = False
+            for param in wide_resnet.mod6.block1.adapt.parameters():
+                param.requires_grad = True
+            for param in wide_resnet.mod6.block1.se.parameters():
+                param.requires_grad = True
+            for param in wide_resnet.mod6.block1.convs.bn2.parameters():
+                param.requires_grad = True
+            for param in wide_resnet.mod6.block1.convs.bn3.parameters():
+                param.requires_grad = True
+            for param in wide_resnet.mod7.block1.adapt.parameters():
+                param.requires_grad = True
+            for param in wide_resnet.mod7.block1.se.parameters():
+                param.requires_grad = True
+            for param in wide_resnet.mod7.block1.convs.bn2.parameters():
+                param.requires_grad = True
+            for param in wide_resnet.mod7.block1.convs.bn3.parameters():
+                param.requires_grad = True
+
         self.mod1 = wide_resnet.mod1
         self.mod2 = wide_resnet.mod2
         self.mod3 = wide_resnet.mod3
