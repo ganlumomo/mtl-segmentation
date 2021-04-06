@@ -17,7 +17,7 @@
         --scale_min 1.0 \
         --scale_max 2.0 \
         --color_aug 0.25 \
-        --max_epoch 120 \
+        --max_epoch 90 \
         --img_wt_loss \
         --wt_bound 1.0 \
         --bs_mult 4 \
