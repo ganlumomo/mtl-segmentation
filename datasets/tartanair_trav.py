@@ -226,7 +226,7 @@ class TartanAir_Trav(data.Dataset):
                 img = img.resize((width*2, height*2), Image.BICUBIC)
                 mask = mask.resize((width*2, height*2), Image.NEAREST)
         elif self.mode == 'val':
-            width, height = 1242, 376
+            width, height = 640, 480
             img = img.resize((width, height), Image.BICUBIC)
             mask = mask.resize((width, height), Image.NEAREST)
         elif self.mode == 'test':
