@@ -233,7 +233,7 @@ class DeepWV3Plus(nn.Module):
                 raise RuntimeError("=====================Could not load ImageNet weights of WideResNet38 network.=======================")
         wide_resnet = wide_resnet.module
 
-        if True:
+        if False:
             for param in wide_resnet.parameters():
                 param.requires_grad = False
             for param in wide_resnet.mod6.block1.adapt.parameters():
@@ -298,7 +298,7 @@ class DeepWV3Plus(nn.Module):
                 nn.Conv2d(256, 2, kernel_size=1, bias=False))
 
             initialize_weights(self.final2)
-            self.task_weights = torch.nn.Parameter(torch.ones(2, requires_grad=True))
+            #self.task_weights = torch.nn.Parameter(torch.ones(2, requires_grad=True))
 
     def get_last_shared_layer(self):
         return self.mod5
