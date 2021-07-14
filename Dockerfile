@@ -1,5 +1,5 @@
 # NVIDIA Pytorch Image
-FROM nvcr.io/nvidia/pytorch:19.05-py3
+FROM nvcr.io/nvidia/pytorch:21.06-py3
 
 RUN pip install numpy
 RUN pip install sklearn
@@ -17,7 +17,7 @@ RUN pip install nose
 RUN pip install ninja
 
 RUN apt-get update
-RUN apt-get install libgtk2.0-dev -y && rm -rf /var/lib/apt/lists/*
+RUN DEBIAN_FRONTEND="noninteractive" apt-get install libgtk2.0-dev -y && rm -rf /var/lib/apt/lists/*
 
 
 # Install Apex
