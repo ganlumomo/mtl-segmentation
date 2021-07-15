@@ -17,6 +17,9 @@ RUN pip install nose
 RUN pip install ninja
 
 RUN apt-get update
+RUN apt-get install -y --no-install-recommends \
+	sudo \
+	vim
 RUN DEBIAN_FRONTEND="noninteractive" apt-get install libgtk2.0-dev -y && rm -rf /var/lib/apt/lists/*
 
 
