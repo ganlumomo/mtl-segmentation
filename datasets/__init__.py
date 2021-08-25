@@ -8,6 +8,7 @@ from datasets import tartanair_semantic
 from datasets import tartanair_trav
 from datasets import tartanair_multi
 from datasets import camvid
+from datasets import rellis3d
 import torchvision.transforms as standard_transforms
 
 import transforms.joint_transforms as joint_transforms
@@ -67,6 +68,13 @@ def setup_loaders(args):
             args.val_batch_size = args.bs_mult * args.ngpu
     elif args.dataset == 'camvid':
         args.dataset_cls = camvid
+        args.train_batch_size = args.bs_mult * args.ngpu
+        if args.bs_mult_val > 0:
+            args.val_batch_size = args.bs_mult_val * args.ngpu
+        else:
+            args.val_batch_size = args.bs_mult * args.ngpu
+    elif args.dataset == 'rellis3d':
+        args.dataset_cls = rellis3d
         args.train_batch_size = args.bs_mult * args.ngpu
         if args.bs_mult_val > 0:
             args.val_batch_size = args.bs_mult_val * args.ngpu
@@ -345,7 +353,26 @@ def setup_loaders(args):
             test=False,
             cv_split=args.cv,
             scf=None)
-
+    elif args.dataset == 'rellis3d':
+        train_set = args.dataset_cls.RELLIS3D(
+            'semantic', 'train', args.maxSkip,
+            joint_transform_list=train_joint_transform_list,
+            transform=train_input_transform,
+            target_transform=target_train_transform,
+            dump_images=args.dump_augmentation_images,
+            class_uniform_pct=args.class_uniform_pct,
+            class_uniform_tile=args.class_uniform_tile,
+            test=args.test_mode,
+            cv_split=args.cv,
+            scf=None)
+        val_set = args.dataset_cls.RELLIS3D(
+            'semantic', 'val', 0, 
+            joint_transform_list=None,
+            transform=val_input_transform,
+            target_transform=target_transform,
+            test=False,
+            cv_split=args.cv,
+            scf=None)
     elif args.dataset == 'null_loader':
         train_set = args.dataset_cls.null_loader(args.crop_size)
         val_set = args.dataset_cls.null_loader(args.crop_size)

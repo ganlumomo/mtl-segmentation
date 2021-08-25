@@ -86,7 +86,8 @@ __C.DATASET.KITTI_AUG_DIR = ''
 __C.DATASET.CAMVID_DIR = ''
 #Number of splits to support
 __C.DATASET.CV_SPLITS = 3
-
+#RELLIS-3D Dataset Dir Location
+__C.DATASET.RELLIS3D_DIR = '/home/cel/data/RELLIS_3D/Rellis-3D/'
 
 __C.MODEL = AttrDict()
 __C.MODEL.BN = 'regularnorm'

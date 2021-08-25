@@ -21,7 +21,8 @@ In ECCV 2018.
     cd semantic-segmentation
 
     # Build Docker Image
-    docker build -t nvidia-segmgentation -f Dockerfile .
+    docker build --tag umcurly/nvidia-segmgentation .
+    bash scripts/build_docker_container.bash [container_name]
 
 If you prefer not to use docker, you can manually install the following requirements: 
 
