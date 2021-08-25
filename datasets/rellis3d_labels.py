@@ -75,7 +75,7 @@ Label = namedtuple( 'Label' , [
 labels = [
     #       name                     id    trainId   color
     Label(  'void'                 ,  0 ,        0 , (0, 0, 0) ),
-    # Label(  'dirt'                 ,  1 ,        0 , (108, 64, 20) ),
+    Label(  'dirt'                 ,  1 ,        0 , (108, 64, 20) ),
     Label(  'grass'                ,  3 ,        1 , (0, 102, 0) ),
     Label(  'tree'                 ,  4 ,        2 , (0, 255, 0) ),
     Label(  'pole'                 ,  5 ,        3 , (0, 153, 153) ),
@@ -110,7 +110,7 @@ id2label        = { label.id      : label for label in labels           }
 # trainId to label object
 trainId2label   = { label.trainId      : label for label in reversed(labels) }
 # label2trainid
-label2trainid   = { label.id      : label.id for label in labels        }
+label2trainid   = { label.id      : label.trainId for label in labels        }
 # trainId to label object
 trainId2name   = { label.trainId       : label.name for label in labels      }
 trainId2color  = { label.trainId       : label.color for label in labels     }

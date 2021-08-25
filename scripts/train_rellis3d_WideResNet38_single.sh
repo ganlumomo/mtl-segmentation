@@ -5,7 +5,6 @@
         --dataset rellis3d \
         --cv 2 \
         --arch network.deepv3.DeepWV3Plus \
-        # --snapshot ./pretrained_models/cityscapes_best.pth \
         --class_uniform_pct 0.5 \
         --class_uniform_tile 300 \
         --lr 0.001 \
@@ -27,3 +26,4 @@
         --tb_path ./logs/
 
 
+        # --snapshot ./pretrained_models/cityscapes_best.pth \

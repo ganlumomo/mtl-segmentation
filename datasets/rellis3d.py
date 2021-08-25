@@ -182,31 +182,10 @@ class RELLIS3D(data.Dataset):
             mask_copy[mask == k] = v
         mask = Image.fromarray(mask_copy.astype(np.uint8))
 
-#        # kitti scale correction factor
-#        if self.mode == 'train' or self.mode == 'trainval':
-#            if self.scf:
-#                width, height = img.size
-#                img = img.resize((width*2, height*2), Image.BICUBIC)
-#                mask = mask.resize((width*2, height*2), Image.NEAREST)
-#        elif self.mode == 'val':
-#            width, height = 640, 480
-#            img = img.resize((width, height), Image.BICUBIC)
-#            mask = mask.resize((width, height), Image.NEAREST)
-#        elif self.mode == 'test':
-#            img_keepsize = img.copy()
-#            width, height = 1280, 384
-#            img = img.resize((width, height), Image.BICUBIC)
-#        else:
-#            logging.info('Unknown mode {}'.format(mode))
-#            sys.exit()
-#
-#        if self.mode != 'test':
-#            mask = np.array(mask)
-#            mask_copy = mask.copy()
-#
-#            for k, v in id_to_trainid.items():
-#                mask_copy[mask == k] = v
-#            mask = Image.fromarray(mask_copy.astype(np.uint8))
+        # resize images
+        width, height = 640, 480
+        img = img.resize((width, height), Image.BICUBIC)
+        mask = mask.resize((width, height), Image.NEAREST)
 
         # Image Transformations
         if self.joint_transform_list is not None:

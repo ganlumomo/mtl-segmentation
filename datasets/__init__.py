@@ -364,7 +364,8 @@ def setup_loaders(args):
             class_uniform_tile=args.class_uniform_tile,
             test=args.test_mode,
             cv_split=args.cv,
-            scf=None)
+            scf=args.scf,
+            hardnm=args.hardnm)
         val_set = args.dataset_cls.RELLIS3D(
             'semantic', 'val', 0, 
             joint_transform_list=None,
