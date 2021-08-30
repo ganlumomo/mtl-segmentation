@@ -12,7 +12,7 @@ RUN pip install cffi
 RUN pip install tqdm
 RUN pip install dominate
 RUN pip install tensorboardX
-RUN pip install opencv-python
+RUN pip install opencv-python-headless
 RUN pip install nose
 RUN pip install ninja
 

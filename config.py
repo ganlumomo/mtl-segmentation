@@ -88,6 +88,8 @@ __C.DATASET.CAMVID_DIR = ''
 __C.DATASET.CV_SPLITS = 3
 #RELLIS-3D Dataset Dir Location
 __C.DATASET.RELLIS3D_DIR = '/home/cel/data/RELLIS_3D/Rellis-3D/'
+__C.DATASET.MINICHEETAH = '/home/cel/data/forest/'
+
 
 __C.MODEL = AttrDict()
 __C.MODEL.BN = 'regularnorm'

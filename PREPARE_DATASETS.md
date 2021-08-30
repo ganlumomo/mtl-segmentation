@@ -144,6 +144,32 @@ KITTI
 ```
 There is no official training/validation split as the dataset only has `200` training samples. We randomly create three splits at [here](https://github.com/NVIDIA/semantic-segmentation/blob/master/datasets/kitti.py#L41-L44) in order to perform cross-validation. 
 
+## RELLIS-3D
 
+Please download this dataset at RELLIS-3D [webpage](https://github.com/unmannedlab/RELLIS-3D). Including Full Images, Full Image Annotations ID Format, Image Split File.
+
+The desire folder structure will look like,
+```
+Rellis-3D
+├── 00000
+│   ├── pylon_camera_node
+│   ├── pylone_camera_node_label_id
+├── 00001
+│   ├── pylon_camera_node
+│   ├── pylone_camera_node_label_id
+├── 00002
+│   ├── pylon_camera_node
+│   ├── pylone_camera_node_label_id
+├── 00003
+│   ├── pylon_camera_node
+│   ├── pylone_camera_node_label_id
+├── 00004
+│   ├── pylon_camera_node
+│   ├── pylone_camera_node_label_id
+├── train.lst
+├── val.lst
+├── test.lst
+
+```
 
 

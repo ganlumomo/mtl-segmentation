@@ -26,7 +26,7 @@ import numpy as np
 import transforms.transforms as extended_transforms
 
 from config import assert_and_infer_cfg
-from datasets import cityscapes, kitti, tartanair_semantic, tartanair_trav
+from datasets import cityscapes, kitti, tartanair_semantic, tartanair_trav, rellis3d
 from optimizer import restore_snapshot
 
 from utils.my_data_parallel import MyDataParallel
@@ -371,6 +371,15 @@ def setup_loader():
                                          transform=val_input_transform,
                                          target_transform=target_transform,
                                          cv_split=args.cv_split)
+    elif args.dataset == 'rellis3d':
+        args.dataset_cls = rellis3d
+        test_set = args.dataset_cls.RELLIS3D(args.mode, args.split,
+                                         transform=val_input_transform,
+                                         target_transform=target_transform,
+                                         cv_split=args.cv_split)
+    
+
+
     else:
         raise NameError('-------------Not Supported Currently-------------')
 
