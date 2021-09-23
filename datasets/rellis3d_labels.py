@@ -72,10 +72,34 @@ Label = namedtuple( 'Label' , [
 # Make sure to provide your results using the original IDs and not the training IDs.
 # Note that many IDs are ignored in evaluation and thus you never need to predict these!
 
+# labels = [
+#     #       name                     id    trainId   color
+#     Label(  'void'                 ,  0 ,      255 , (0, 0, 0) ),
+#     Label(  'dirt'                 ,  1 ,      255 , (0, 0, 0) ), #(108, 64, 20) ),
+#     Label(  'grass'                ,  3 ,        0 , (0, 102, 0) ),
+#     Label(  'tree'                 ,  4 ,        1 , (0, 255, 0) ),
+#     Label(  'pole'                 ,  5 ,        2 , (0, 153, 153) ),
+#     Label(  'water'                ,  6 ,        3 , (0, 128, 255) ),
+#     Label(  'sky'                  ,  7 ,        4 , (0, 0, 255) ),
+#     Label(  'vehicle'              ,  8 ,        5 , (255, 255, 0) ),
+#     Label(  'object'               ,  9 ,        6 , (255, 0, 127) ),
+#     Label(  'asphalt'              , 10 ,        7 , (64, 64, 64) ),
+#     Label(  'building'             , 12 ,        8 , (255, 0, 0) ),
+#     Label(  'log'                  , 15 ,        9 , (102, 0, 0) ),
+#     Label(  'person'               , 17 ,       10 , (204, 153, 255) ),
+#     Label(  'fence'                , 18 ,       11 , (102, 0, 204) ),
+#     Label(  'bush'                 , 19 ,       12 , (255, 135, 204) ),
+#     Label(  'concrete'             , 23 ,       13 , (170, 170, 170) ),
+#     Label(  'barrier'              , 27 ,       14 , (41, 121, 255) ),
+#     Label(  'puddle'               , 31 ,       15 , (134, 255, 239) ),
+#     Label(  'mud'                  , 33 ,       16 , (99, 66, 34) ),
+#     Label(  'rubble'               , 34 ,       17 , (110, 22, 138) ),
+# ]
+
 labels = [
     #       name                     id    trainId   color
     Label(  'void'                 ,  0 ,        0 , (0, 0, 0) ),
-    Label(  'dirt'                 ,  1 ,        0 , (108, 64, 20) ),
+    Label(  'dirt'                 ,  1 ,        0 , (0, 0, 0) ), #(108, 64, 20) ),
     Label(  'grass'                ,  3 ,        1 , (0, 102, 0) ),
     Label(  'tree'                 ,  4 ,        2 , (0, 255, 0) ),
     Label(  'pole'                 ,  5 ,        3 , (0, 153, 153) ),
@@ -95,7 +119,6 @@ labels = [
     Label(  'mud'                  , 33 ,       17 , (99, 66, 34) ),
     Label(  'rubble'               , 34 ,       18 , (110, 22, 138) ),
 ]
-
 
 #--------------------------------------------------------------------------------
 # Create dictionaries for a fast lookup

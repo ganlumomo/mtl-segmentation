@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-    # Example on KITTI, fine tune
+    # training RELLIS-3D
      python -m torch.distributed.launch --nproc_per_node=2 train.py \
         --dataset rellis3d \
         --cv 2 \
@@ -12,16 +12,16 @@
         --poly_exp 1.0 \
         --syncbn \
         --sgd \
-        --crop_size 360 \
+        --crop_size 480 \
         --scale_min 1.0 \
         --scale_max 2.0 \
         --color_aug 0.25 \
         --max_epoch 90 \
         --img_wt_loss \
         --wt_bound 1.0 \
-        --bs_mult 8 \
+        --bs_mult 4 \
         --apex \
-        --exp rellis_single_semantic \
+        --exp rellis_semantic_crop480 \
         --ckpt ./logs/ \
         --tb_path ./logs/
 
