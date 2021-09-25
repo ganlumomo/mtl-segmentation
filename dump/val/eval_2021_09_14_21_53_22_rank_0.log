@@ -1,0 +1,6 @@
+09-14 21:53:22.767 Network Arch: network.deepv3.DeepWV3Plus
+09-14 21:53:22.768 CV split: 0
+09-14 21:53:22.768 Exp_name: 
+09-14 21:53:22.768 Ckpt path: dump
+09-14 21:53:22.768 Scales : 1.0
+09-14 21:53:22.768 Inference mode: sliding

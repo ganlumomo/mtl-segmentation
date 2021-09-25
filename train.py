@@ -19,6 +19,10 @@ import optimizer
 from torchvision import transforms
 from PIL import Image
 
+# TODO
+import torch
+from torch import nn
+
 # Argument Parser
 parser = argparse.ArgumentParser(description='Semantic Segmentation')
 parser.add_argument('--lr', type=float, default=0.002)
@@ -162,6 +166,10 @@ def main():
     net = network.get_net(args, criterion)
     optim, scheduler = optimizer.get_optimizer(args, net)
 
+    # TODO DEBUG
+    print("NET: ") 
+    #print(net.final)
+
     if args.fp16:
         net, optim = amp.initialize(net, optim, opt_level="O1")
 
@@ -169,6 +177,12 @@ def main():
     if args.snapshot:
         optimizer.load_weights(net, optim,
                                args.snapshot, args.restore_optimizer)
+    
+    # TODO replace with random 
+    #net.final[6] = nn.Conv2d(256, args.dataset_cls.num_classes, kernel_size=1, bias=False)
+    print("final: ")
+    print(net.module.final[6])
+    net.module.final[6] = nn.Conv2d(256, args.dataset_cls.num_classes, kernel_size=1, bias=False, device="cuda")
 
     torch.cuda.empty_cache()
     # Main Loop

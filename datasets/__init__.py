@@ -9,6 +9,7 @@ from datasets import tartanair_trav
 from datasets import tartanair_multi
 from datasets import camvid
 from datasets import rellis3d
+from datasets import northcampusforrest
 import torchvision.transforms as standard_transforms
 
 import transforms.joint_transforms as joint_transforms
@@ -82,6 +83,13 @@ def setup_loaders(args):
             args.val_batch_size = args.bs_mult * args.ngpu
     elif args.dataset == 'null_loader':
         args.dataset_cls = null_loader
+        args.train_batch_size = args.bs_mult * args.ngpu
+        if args.bs_mult_val > 0:
+            args.val_batch_size = args.bs_mult_val * args.ngpu
+        else:
+            args.val_batch_size = args.bs_mult * args.ngpu
+    elif args.dataset == 'northcampusforrest':
+        args.dataset_cls = northcampusforrest
         args.train_batch_size = args.bs_mult * args.ngpu
         if args.bs_mult_val > 0:
             args.val_batch_size = args.bs_mult_val * args.ngpu
@@ -377,6 +385,40 @@ def setup_loaders(args):
     elif args.dataset == 'null_loader':
         train_set = args.dataset_cls.null_loader(args.crop_size)
         val_set = args.dataset_cls.null_loader(args.crop_size)
+    
+    elif args.dataset == 'northcampusforrest': 
+        train_set = args.dataset_cls.NorthCampusForrest(
+            'semantic', 'train', args.maxSkip,
+            joint_transform_list=train_joint_transform_list,
+            transform=train_input_transform,
+            target_transform=target_train_transform,
+            dump_images=args.dump_augmentation_images,
+            class_uniform_pct=args.class_uniform_pct,
+            class_uniform_tile=args.class_uniform_tile,
+            test=args.test_mode,
+            cv_split=args.cv,
+            scf=args.scf,
+            hardnm=args.hardnm)
+        val_set = args.dataset_cls.NorthCampusForrest(
+            'semantic', 'val', 0, 
+            joint_transform_list=None,
+            transform=val_input_transform,
+            target_transform=target_transform,
+            test=False,
+            cv_split=args.cv,
+            scf=None)
+        '''
+        print("NORTH CAMPUS FORREST")
+        train_set = args.dataset_cls.NorthCampusForrest(
+            "train",
+            joint_transform_list=train_joint_transform_list,
+            transform=train_input_transform,
+            target_transform=target_train_transform,
+        )
+        val_set = args.dataset_cls.NorthCampusForrest(
+            "val"
+        )'''
+
     else:
         raise Exception('Dataset {} is not supported'.format(args.dataset))
     
