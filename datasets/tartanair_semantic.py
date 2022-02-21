@@ -19,12 +19,13 @@ import random
 trainid_to_name = tartanair_labels.trainId2name
 id_to_trainid = tartanair_labels.label2trainid
 trainid_to_color = tartanair_labels.trainId2color
-num_classes = 30
+num_classes = 17
 ignore_label = 255
 root = cfg.DATASET.TARTANAIR_DIR
 #aug_root = cfg.DATASET.KITTI_AUG_DIR
 #num_images = 2140 #P000
-num_images = 399 #P001
+#num_images = 399 #P001
+num_images = 4202 #P000
 
 '''
 palette = [128, 64, 128, 244, 35, 232, 70, 70, 70, 102, 102, 156, 190, 153, 153,
@@ -40,6 +41,7 @@ for i in range(num_classes):
     palette.append(trainid_to_color[i][1])
     palette.append(trainid_to_color[i][2])
 #print(palette)
+
 
 zero_pad = 256 * 3 - len(palette)
 
@@ -57,8 +59,8 @@ def get_train_val(cv_split, all_items):
     val_0 = [1,5,11,29,35,49,57,68,72,82,93,115,119,130,145,154,156,167,169,189,198]
     val_1 = [0,12,24,31,42,50,63,71,84,96,101,112,121,133,141,155,164,171,187,191,197]
     #val_2 = [3,6,13,21,41,54,61,73,88,91,110,121,126,131,142,149,150,163,173,183,199]
-    val_2 = random.sample(range(num_images), int(0.1 * num_images))
-
+    val_2 = random.sample(range(num_images), int(0.3 * num_images))
+    
     train_set = []
     val_set = []
 

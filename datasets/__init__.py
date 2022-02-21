@@ -260,7 +260,7 @@ def setup_loaders(args):
             scf=args.scf,
             hardnm=args.hardnm)
         val_set = args.dataset_cls.TartanAir_Semantic(
-            'semantic', 'trainval', 0, 
+            'semantic', 'val', 0, 
             joint_transform_list=None,
             transform=val_input_transform,
             target_transform=target_transform,

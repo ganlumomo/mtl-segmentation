@@ -22,7 +22,7 @@
         --wt_bound 1.0 \
         --bs_mult 8 \
         --apex \
-        --exp tartanair_single_semantic \
+        --exp tartanair_neighborhood_single_semantic \
         --ckpt ./logs/ \
         --tb_path ./logs/
 

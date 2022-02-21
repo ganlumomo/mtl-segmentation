@@ -72,7 +72,8 @@ __C.DATASET.MAPILLARY_DIR = ''
 #Kitti Dataset Dir Location
 __C.DATASET.KITTI_DIR = ''
 #TartanAir Dataset Dir Location
-__C.DATASET.TARTANAIR_DIR = '/media/neofelis/Samsung_T5/000_tro2020/tartanair-release1/abandonedfactory/Easy/P001/'
+#__C.DATASET.TARTANAIR_DIR = '/media/neofelis/Samsung_T5/000_tro2020/tartanair-release1/abandonedfactory/Easy/P001/'
+__C.DATASET.TARTANAIR_DIR = '/home/ganlu/neighborhood/'
 __C.DATASET.TARTANAIR_DIR_RGB = __C.DATASET.TARTANAIR_DIR + 'image_left/'
 __C.DATASET.TARTANAIR_DIR_TRAV = __C.DATASET.TARTANAIR_DIR + 'traversability_gt/'
 __C.DATASET.TARTANAIR_DIR_SEMANTIC = __C.DATASET.TARTANAIR_DIR + 'seg_left/'
