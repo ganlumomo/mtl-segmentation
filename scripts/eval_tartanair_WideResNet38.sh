@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 echo "Running inference on" ${1}
 echo "Saving Results :" ${2}
-PYTHONPATH=$PWD:$PYTHONPATH python3 eval_multi.py \
-    --dataset tartanair_trav \
-    --exp tartanair_multi_trav \
+PYTHONPATH=$PWD:$PYTHONPATH python3 eval.py \
+    --dataset tartanair_semantic \
+    --exp tartanair_neighborhood_semantic \
     --arch network.deepv3.DeepWV3Plus \
     --split trainval \
     --inference_mode sliding \

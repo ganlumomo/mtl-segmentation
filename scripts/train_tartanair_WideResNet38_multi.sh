@@ -22,7 +22,7 @@
         --wt_bound 1.0 \
         --bs_mult 4 \
 	--apex \
-        --exp tartanair_multi \
+        --exp tartanair_neighborhood_multi \
         --ckpt ./logs/ \
         --tb_path ./logs/
 
